@@ -29,14 +29,14 @@ from metagpt.utils.exceptions import handle_exception
 
 class RepoFileInfo(BaseModel):
     """
-    Repository data element that represents information about a file.
+    代表仓库中的文件信息的数据类。
 
-    Attributes:
-        file (str): The name or path of the file.
-        classes (List): A list of class names present in the file.
-        functions (List): A list of function names present in the file.
-        globals (List): A list of global variable names present in the file.
-        page_info (List): A list of page-related information associated with the file.
+    属性:
+        file (str): 文件的名称或路径。
+        classes (List): 文件中定义的类名列表。
+        functions (List): 文件中定义的函数名列表。
+        globals (List): 文件中定义的全局变量名列表。
+        page_info (List): 与文件相关的页面信息列表。
     """
 
     file: str
@@ -48,14 +48,14 @@ class RepoFileInfo(BaseModel):
 
 class CodeBlockInfo(BaseModel):
     """
-    Repository data element representing information about a code block.
+    代表代码块信息的数据类。
 
-    Attributes:
-        lineno (int): The starting line number of the code block.
-        end_lineno (int): The ending line number of the code block.
-        type_name (str): The type or category of the code block.
-        tokens (List): A list of tokens present in the code block.
-        properties (Dict): A dictionary containing additional properties associated with the code block.
+    属性:
+        lineno (int): 代码块的起始行号。
+        end_lineno (int): 代码块的结束行号。
+        type_name (str): 代码块的类型或类别。
+        tokens (List): 代码块中的标记列表。
+        properties (Dict): 包含代码块附加属性的字典。
     """
 
     lineno: int
@@ -67,14 +67,14 @@ class CodeBlockInfo(BaseModel):
 
 class DotClassAttribute(BaseModel):
     """
-    Repository data element representing a class attribute in dot format.
+    代表类属性（dot格式）信息的数据类。
 
-    Attributes:
-        name (str): The name of the class attribute.
-        type_ (str): The type of the class attribute.
-        default_ (str): The default value of the class attribute.
-        description (str): A description of the class attribute.
-        compositions (List[str]): A list of compositions associated with the class attribute.
+    属性:
+        name (str): 类属性的名称。
+        type_ (str): 类属性的类型。
+        default_ (str): 类属性的默认值。
+        description (str): 类属性的描述信息。
+        compositions (List[str]): 与该类属性相关的组合类型列表。
     """
 
     name: str = ""
@@ -86,68 +86,83 @@ class DotClassAttribute(BaseModel):
     @classmethod
     def parse(cls, v: str) -> "DotClassAttribute":
         """
-        Parses dot format text and returns a DotClassAttribute object.
+        解析 dot 格式的文本并返回 DotClassAttribute 对象。
 
-        Args:
-            v (str): Dot format text to be parsed.
+        参数:
+            v (str): 需要解析的 dot 格式字符串。
 
-        Returns:
-            DotClassAttribute: An instance of the DotClassAttribute class representing the parsed data.
+        返回:
+            DotClassAttribute: 解析后的 DotClassAttribute 实例。
         """
         val = ""
-        meet_colon = False
-        meet_equals = False
+        meet_colon = False  # 是否遇到 `:`，用于标识类型
+        meet_equals = False  # 是否遇到 `=`，用于标识默认值
+
         for c in v:
             if c == ":":
-                meet_colon = True
+                meet_colon = True  # 标记遇到了 `:`，表示类型部分开始
             elif c == "=":
-                meet_equals = True
+                meet_equals = True  # 标记遇到了 `=`，表示默认值部分开始
                 if not meet_colon:
-                    val += ":"
+                    val += ":"  # 如果 `:` 之前没有出现，补上 `:`
                     meet_colon = True
-            val += c
-        if not meet_colon:
-            val += ":"
-        if not meet_equals:
-            val += "="
+            val += c  # 拼接原始字符串
 
+        if not meet_colon:
+            val += ":"  # 如果 `:` 仍未出现，补上 `:`
+        if not meet_equals:
+            val += "="  # 如果 `=` 仍未出现，补上 `=`
+
+        # 查找 `:` 和 `=`
         cix = val.find(":")
         eix = val.rfind("=")
-        name = val[0:cix].strip()
-        type_ = val[cix + 1 : eix]
-        default_ = val[eix + 1 :].strip()
 
-        type_ = remove_white_spaces(type_)  # remove white space
+        # 提取 name, type_, default_
+        name = val[0:cix].strip()
+        type_ = val[cix + 1: eix]
+        default_ = val[eix + 1:].strip()
+
+        # 清理 type_ 字符串
+        type_ = remove_white_spaces(type_)
         if type_ == "NoneType":
             type_ = ""
+
+        # 处理 Literal 类型
         if "Literal[" in type_:
             pre_l, literal, post_l = cls._split_literal(type_)
-            composition_val = pre_l + "Literal" + post_l  # replace Literal[...] with Literal
+            composition_val = pre_l + "Literal" + post_l  # 替换 Literal[...] 为 Literal
             type_ = pre_l + literal + post_l
         else:
-            type_ = re.sub(r"['\"]+", "", type_)  # remove '"
+            type_ = re.sub(r"['\"]+", "", type_)  # 去除引号
             composition_val = type_
 
         if default_ == "None":
             default_ = ""
+
+        # 解析组合类型
         compositions = cls.parse_compositions(composition_val)
+
         return cls(name=name, type_=type_, default_=default_, description=v, compositions=compositions)
 
     @staticmethod
     def parse_compositions(types_part) -> List[str]:
         """
-        Parses the type definition code block of source code and returns a list of compositions.
+        解析类型定义代码块，并返回提取出的组合类型列表。
 
-        Args:
-            types_part: The type definition code block to be parsed.
+        参数:
+            types_part: 需要解析的类型定义代码块。
 
-        Returns:
-            List[str]: A list of compositions extracted from the type definition code block.
+        返回:
+            List[str]: 提取出的组合类型列表。
         """
         if not types_part:
             return []
+
+        # 用 `|` 替换 `[]`, `()`, `,` 以便拆分
         modified_string = re.sub(r"[\[\],\(\)]", "|", types_part)
         types = modified_string.split("|")
+
+        # 过滤掉基础类型，仅保留自定义类型
         filters = {
             "str",
             "frozenset",
@@ -170,28 +185,33 @@ class DotClassAttribute(BaseModel):
             "Literal",
             "List",
         }
+
         result = set()
         for t in types:
-            t = re.sub(r"['\"]+", "", t.strip())
+            t = re.sub(r"['\"]+", "", t.strip())  # 去除引号并去空格
             if t and t not in filters:
                 result.add(t)
+
         return list(result)
+
 
     @staticmethod
     def _split_literal(v):
         """
-        Parses the literal definition code block and returns three parts: pre-part, literal-part, and post-part.
+        解析字面量类型定义，并返回三部分: 前缀部分、字面量部分、后缀部分。
 
-        Args:
-            v: The literal definition code block to be parsed.
+        参数:
+            v: 需要解析的字面量类型代码块。
 
-        Returns:
-            Tuple[str, str, str]: A tuple containing the pre-part, literal-part, and post-part of the code block.
+        返回:
+            Tuple[str, str, str]: 解析出的前缀部分、字面量部分和后缀部分。
         """
-        tag = "Literal["
-        bix = v.find(tag)
-        eix = len(v) - 1
-        counter = 1
+        tag = "Literal["  # 目标标记
+        bix = v.find(tag)  # 获取 `Literal[` 起始索引
+        eix = len(v) - 1  # 初始化结尾索引
+        counter = 1  # 记录 `[` 的嵌套层数
+
+        # 遍历字符串，找到 `Literal[...]` 的匹配结束位置
         for i in range(bix + len(tag), len(v) - 1):
             c = v[i]
             if c == "[":
@@ -201,26 +221,30 @@ class DotClassAttribute(BaseModel):
                 counter -= 1
                 if counter > 0:
                     continue
-                eix = i
+                eix = i  # 找到匹配的 `]`
                 break
-        pre_l = v[0:bix]
-        post_l = v[eix + 1 :]
-        pre_l = re.sub(r"['\"]", "", pre_l)  # remove '"
-        pos_l = re.sub(r"['\"]", "", post_l)  # remove '"
 
-        return pre_l, v[bix : eix + 1], pos_l
+        # 切割字符串
+        pre_l = v[0:bix]
+        post_l = v[eix + 1:]
+
+        # 去除前后部分的引号
+        pre_l = re.sub(r"['\"]", "", pre_l)
+        post_l = re.sub(r"['\"]", "", post_l)
+
+        return pre_l, v[bix: eix + 1], post_l
 
     @field_validator("compositions", mode="after")
     @classmethod
     def sort(cls, lst: List) -> List:
         """
-        Auto-sorts a list attribute after making changes.
+        在修改 `compositions` 或 `aggregations` 列表后自动进行排序。
 
-        Args:
-            lst (List): The list attribute to be sorted.
+        参数:
+            lst (List): 需要排序的列表。
 
-        Returns:
-            List: The sorted list.
+        返回:
+            List: 排序后的列表。
         """
         lst.sort()
         return lst
@@ -228,15 +252,15 @@ class DotClassAttribute(BaseModel):
 
 class DotClassInfo(BaseModel):
     """
-    Repository data element representing information about a class in dot format.
+    代表 dot 格式中的类信息的仓库数据元素。
 
-    Attributes:
-        name (str): The name of the class.
-        package (Optional[str]): The package to which the class belongs (optional).
-        attributes (Dict[str, DotClassAttribute]): A dictionary of attributes associated with the class.
-        methods (Dict[str, DotClassMethod]): A dictionary of methods associated with the class.
-        compositions (List[str]): A list of compositions associated with the class.
-        aggregations (List[str]): A list of aggregations associated with the class.
+    属性:
+        name (str): 类的名称。
+        package (Optional[str]): 类所属的包（可选）。
+        attributes (Dict[str, DotClassAttribute]): 与类相关联的属性字典。
+        methods (Dict[str, DotClassMethod]): 与类相关联的方法字典。
+        compositions (List[str]): 与类相关联的组合（集合）列表。
+        aggregations (List[str]): 与类相关联的聚合列表。
     """
 
     name: str
@@ -250,13 +274,13 @@ class DotClassInfo(BaseModel):
     @classmethod
     def sort(cls, lst: List) -> List:
         """
-        Auto-sorts a list attribute after making changes.
+        在修改后自动对列表属性进行排序。
 
-        Args:
-            lst (List): The list attribute to be sorted.
+        参数:
+            lst (List): 需要排序的列表属性。
 
-        Returns:
-            List: The sorted list.
+        返回:
+            List: 排序后的列表。
         """
         lst.sort()
         return lst
@@ -264,13 +288,13 @@ class DotClassInfo(BaseModel):
 
 class DotClassRelationship(BaseModel):
     """
-    Repository data element representing a relationship between two classes in dot format.
+    代表 dot 格式中的两个类之间的关系的仓库数据元素。
 
-    Attributes:
-        src (str): The source class of the relationship.
-        dest (str): The destination class of the relationship.
-        relationship (str): The type or nature of the relationship.
-        label (Optional[str]): An optional label associated with the relationship.
+    属性:
+        src (str): 关系的源类。
+        dest (str): 关系的目标类。
+        relationship (str): 关系的类型或性质。
+        label (Optional[str]): 关系的可选标签。
     """
 
     src: str = ""
@@ -281,12 +305,12 @@ class DotClassRelationship(BaseModel):
 
 class DotReturn(BaseModel):
     """
-    Repository data element representing a function or method return type in dot format.
+    代表 dot 格式中的函数或方法返回类型的仓库数据元素。
 
-    Attributes:
-        type_ (str): The type of the return.
-        description (str): A description of the return type.
-        compositions (List[str]): A list of compositions associated with the return type.
+    属性:
+        type_ (str): 返回类型。
+        description (str): 返回类型的描述。
+        compositions (List[str]): 与返回类型相关联的组合（集合）列表。
     """
 
     type_: str = ""
@@ -296,14 +320,14 @@ class DotReturn(BaseModel):
     @classmethod
     def parse(cls, v: str) -> "DotReturn" | None:
         """
-        Parses the return type part of dot format text and returns a DotReturn object.
+        解析 dot 格式文本中的返回类型部分，并返回一个 DotReturn 对象。
 
-        Args:
-            v (str): The dot format text containing the return type part to be parsed.
+        参数:
+            v (str): 包含要解析的返回类型部分的 dot 格式文本。
 
-        Returns:
-            DotReturn | None: An instance of the DotReturn class representing the parsed return type,
-                             or None if parsing fails.
+        返回:
+            DotReturn | None: 一个表示解析后的返回类型的 DotReturn 实例，
+                              如果解析失败则返回 None。
         """
         if not v:
             return DotReturn(description=v)
@@ -315,19 +339,29 @@ class DotReturn(BaseModel):
     @classmethod
     def sort(cls, lst: List) -> List:
         """
-        Auto-sorts a list attribute after making changes.
+        在修改后自动对列表属性进行排序。
 
-        Args:
-            lst (List): The list attribute to be sorted.
+        参数:
+            lst (List): 需要排序的列表属性。
 
-        Returns:
-            List: The sorted list.
+        返回:
+            List: 排序后的列表。
         """
         lst.sort()
         return lst
 
 
 class DotClassMethod(BaseModel):
+    """
+    代表 dot 格式中的方法信息的仓库数据元素。
+
+    属性:
+        name (str): 方法的名称。
+        args (List[DotClassAttribute]): 方法的参数列表，每个参数为 DotClassAttribute 类型。
+        return_args (Optional[DotReturn]): 方法的返回类型，使用 DotReturn 类型表示。
+        description (str): 方法的描述信息。
+        aggregations (List[str]): 与方法相关联的聚合列表。
+    """
     name: str
     args: List[DotClassAttribute] = Field(default_factory=list)
     return_args: Optional[DotReturn] = None
@@ -337,13 +371,13 @@ class DotClassMethod(BaseModel):
     @classmethod
     def parse(cls, v: str) -> "DotClassMethod":
         """
-        Parses a dot format method text and returns a DotClassMethod object.
+        解析 dot 格式方法文本并返回一个 DotClassMethod 对象。
 
-        Args:
-            v (str): The dot format text containing method information to be parsed.
+        参数:
+            v (str): 包含方法信息的 dot 格式文本。
 
-        Returns:
-            DotClassMethod: An instance of the DotClassMethod class representing the parsed method.
+        返回:
+            DotClassMethod: 代表解析后的方法的 DotClassMethod 实例。
         """
         bix = v.find("(")
         eix = v.rfind(")")
@@ -367,13 +401,13 @@ class DotClassMethod(BaseModel):
     @staticmethod
     def _parse_name(v: str) -> str:
         """
-        Parses the dot format method name part and returns the method name.
+        解析 dot 格式方法名称部分并返回方法名称。
 
-        Args:
-            v (str): The dot format text containing the method name part to be parsed.
+        参数:
+            v (str): 包含方法名称部分的 dot 格式文本。
 
-        Returns:
-            str: The parsed method name.
+        返回:
+            str: 解析后的方法名称。
         """
         tags = [">", "</"]
         if tags[0] in v:
@@ -385,13 +419,13 @@ class DotClassMethod(BaseModel):
     @staticmethod
     def _parse_args(v: str) -> List[DotClassAttribute]:
         """
-        Parses the dot format method arguments part and returns the parsed arguments.
+        解析 dot 格式方法参数部分并返回解析后的参数列表。
 
-        Args:
-            v (str): The dot format text containing the arguments part to be parsed.
+        参数:
+            v (str): 包含方法参数部分的 dot 格式文本。
 
-        Returns:
-            str: The parsed method arguments.
+        返回:
+            List[DotClassAttribute]: 解析后的方法参数列表，每个参数为 DotClassAttribute 类型。
         """
         if not v:
             return []
@@ -421,10 +455,10 @@ class DotClassMethod(BaseModel):
 
 class RepoParser(BaseModel):
     """
-    Tool to build a symbols repository from a project directory.
+    工具类，用于从项目目录构建符号仓库。
 
-    Attributes:
-        base_directory (Path): The base directory of the project.
+    属性:
+        base_directory (Path): 项目目录的基础路径。
     """
 
     base_directory: Path = Field(default=None)
@@ -433,26 +467,26 @@ class RepoParser(BaseModel):
     @handle_exception(exception_type=Exception, default_return=[])
     def _parse_file(cls, file_path: Path) -> list:
         """
-        Parses a Python file in the repository.
+        解析仓库中的 Python 文件。
 
-        Args:
-            file_path (Path): The path to the Python file to be parsed.
+        参数:
+            file_path (Path): 需要解析的 Python 文件路径。
 
-        Returns:
-            list: A list containing the parsed symbols from the file.
+        返回:
+            list: 包含解析后符号信息的列表。
         """
         return ast.parse(file_path.read_text()).body
 
     def extract_class_and_function_info(self, tree, file_path) -> RepoFileInfo:
         """
-        Extracts class, function, and global variable information from the Abstract Syntax Tree (AST).
+        从抽象语法树（AST）中提取类、函数和全局变量的信息。
 
-        Args:
-            tree: The Abstract Syntax Tree (AST) of the Python file.
-            file_path: The path to the Python file.
+        参数:
+            tree: Python 文件的抽象语法树（AST）。
+            file_path: Python 文件的路径。
 
-        Returns:
-            RepoFileInfo: A RepoFileInfo object containing the extracted information.
+        返回:
+            RepoFileInfo: 包含提取信息的 RepoFileInfo 对象。
         """
         file_info = RepoFileInfo(file=str(file_path.relative_to(self.base_directory)))
         for node in tree:
@@ -472,10 +506,10 @@ class RepoParser(BaseModel):
 
     def generate_symbols(self) -> List[RepoFileInfo]:
         """
-        Builds a symbol repository from '.py' and '.js' files in the project directory.
+        从项目目录中的 `.py` 和 `.js` 文件构建符号仓库。
 
-        Returns:
-            List[RepoFileInfo]: A list of RepoFileInfo objects containing the extracted information.
+        返回:
+            List[RepoFileInfo]: 包含提取信息的 RepoFileInfo 对象的列表。
         """
         files_classes = []
         directory = self.base_directory
@@ -493,20 +527,20 @@ class RepoParser(BaseModel):
 
     def generate_json_structure(self, output_path: Path):
         """
-        Generates a JSON file documenting the repository structure.
+        生成一个 JSON 文件，记录仓库结构。
 
-        Args:
-            output_path (Path): The path to the JSON file to be generated.
+        参数:
+            output_path (Path): 生成的 JSON 文件路径。
         """
         files_classes = [i.model_dump() for i in self.generate_symbols()]
         output_path.write_text(json.dumps(files_classes, indent=4))
 
     def generate_dataframe_structure(self, output_path: Path):
         """
-        Generates a DataFrame documenting the repository structure and saves it as a CSV file.
+        生成一个 DataFrame，记录仓库结构，并保存为 CSV 文件。
 
-        Args:
-            output_path (Path): The path to the CSV file to be generated.
+        参数:
+            output_path (Path): 生成的 CSV 文件路径。
         """
         files_classes = [i.model_dump() for i in self.generate_symbols()]
         df = pd.DataFrame(files_classes)
@@ -514,14 +548,14 @@ class RepoParser(BaseModel):
 
     def generate_structure(self, output_path: str | Path = None, mode="json") -> Path:
         """
-        Generates the structure of the repository in a specified format.
+        以指定格式生成仓库结构。
 
-        Args:
-            output_path (str | Path): The path to the output file or directory. Default is None.
-            mode (str): The output format mode. Options: "json" (default), "csv", etc.
+        参数:
+            output_path (str | Path): 输出文件或目录的路径。默认为 None。
+            mode (str): 输出格式模式。选项: "json"（默认）、"csv" 等。
 
-        Returns:
-            Path: The path to the generated output file or directory.
+        返回:
+            Path: 生成的输出文件或目录的路径。
         """
         output_file = self.base_directory / f"{self.base_directory.name}-structure.{mode}"
         output_path = Path(output_path) if output_path else output_file
@@ -535,17 +569,18 @@ class RepoParser(BaseModel):
     @staticmethod
     def node_to_str(node) -> CodeBlockInfo | None:
         """
-        Parses and converts an Abstract Syntax Tree (AST) node to a CodeBlockInfo object.
+        解析并将抽象语法树（AST）节点转换为 CodeBlockInfo 对象。
 
-        Args:
-            node: The AST node to be converted.
+        参数:
+            node: 要转换的 AST 节点。
 
-        Returns:
-            CodeBlockInfo | None: A CodeBlockInfo object representing the parsed AST node,
-                                  or None if the conversion fails.
+        返回:
+            CodeBlockInfo | None: 表示解析后的 AST 节点的 CodeBlockInfo 对象，
+                                  如果转换失败，则返回 None。
         """
         if isinstance(node, ast.Try):
             return None
+        # 如果节点是表达式类型，则解析并返回对应的 CodeBlockInfo
         if any_to_str(node) == any_to_str(ast.Expr):
             return CodeBlockInfo(
                 lineno=node.lineno,
@@ -553,6 +588,7 @@ class RepoParser(BaseModel):
                 type_name=any_to_str(node),
                 tokens=RepoParser._parse_expr(node),
             )
+        # 定义各种 AST 节点类型及其对应的解析方法
         mappings = {
             any_to_str(ast.Import): lambda x: [RepoParser._parse_name(n) for n in x.names],
             any_to_str(ast.Assign): RepoParser._parse_assign,
@@ -568,6 +604,7 @@ class RepoParser(BaseModel):
         }
         func = mappings.get(any_to_str(node))
         if func:
+            # 创建 CodeBlockInfo 对象，并根据类型调用对应的解析函数
             code_block = CodeBlockInfo(lineno=node.lineno, end_lineno=node.end_lineno, type_name=any_to_str(node))
             val = func(node)
             if isinstance(val, dict):
@@ -579,20 +616,22 @@ class RepoParser(BaseModel):
             else:
                 raise NotImplementedError(f"Not implement:{val}")
             return code_block
+        # 如果不支持该节点类型，则发出警告并返回 None
         logger.warning(f"Unsupported code block:{node.lineno}, {node.end_lineno}, {any_to_str(node)}")
         return None
 
     @staticmethod
     def _parse_expr(node) -> List:
         """
-        Parses an expression Abstract Syntax Tree (AST) node.
+        解析表达式类型的抽象语法树（AST）节点。
 
-        Args:
-            node: The AST node representing an expression.
+        参数:
+            node: 表示表达式的 AST 节点。
 
-        Returns:
-            List: A list containing the parsed information from the expression node.
+        返回:
+            List: 包含从表达式节点解析得到的信息的列表。
         """
+        # 定义不同表达式类型及其解析方法
         funcs = {
             any_to_str(ast.Constant): lambda x: [any_to_str(x.value), RepoParser._parse_variable(x.value)],
             any_to_str(ast.Call): lambda x: [any_to_str(x.value), RepoParser._parse_variable(x.value.func)],
@@ -601,18 +640,19 @@ class RepoParser(BaseModel):
         func = funcs.get(any_to_str(node.value))
         if func:
             return func(node)
+        # 如果没有对应的解析方法，则抛出未实现异常
         raise NotImplementedError(f"Not implement: {node.value}")
 
     @staticmethod
     def _parse_name(n):
         """
-        Gets the 'name' value of an Abstract Syntax Tree (AST) node.
+        获取抽象语法树（AST）节点的 'name' 值。
 
-        Args:
-            n: The AST node.
+        参数:
+            n: AST 节点。
 
-        Returns:
-            The 'name' value of the AST node.
+        返回:
+            'name' 值，表示该节点的名称。
         """
         if n.asname:
             return f"{n.name} as {n.asname}"
@@ -621,28 +661,32 @@ class RepoParser(BaseModel):
     @staticmethod
     def _parse_if(n):
         """
-        Parses an 'if' statement Abstract Syntax Tree (AST) node.
+        解析 'if' 语句的抽象语法树（AST）节点。
 
-        Args:
-            n: The AST node representing an 'if' statement.
+        参数:
+            n: 表示 'if' 语句的 AST 节点。
 
-        Returns:
-            None or Parsed information from the 'if' statement node.
+        返回:
+            None 或者从 'if' 语句节点解析出的信息。
         """
         tokens = []
         try:
+            # 如果 'if' 条件是布尔运算符（BoolOp），解析布尔值
             if isinstance(n.test, ast.BoolOp):
                 tokens = []
                 for v in n.test.values:
                     tokens.extend(RepoParser._parse_if_compare(v))
                 return tokens
+            # 如果 'if' 条件是比较运算（Compare），解析左侧的变量
             if isinstance(n.test, ast.Compare):
                 v = RepoParser._parse_variable(n.test.left)
                 if v:
                     tokens.append(v)
+            # 如果 'if' 条件是变量名（Name），解析该变量
             if isinstance(n.test, ast.Name):
                 v = RepoParser._parse_variable(n.test)
                 tokens.append(v)
+            # 如果 'if' 条件有比较器（comparators），解析比较器中的变量
             if hasattr(n.test, "comparators"):
                 for item in n.test.comparators:
                     v = RepoParser._parse_variable(item)
@@ -656,13 +700,13 @@ class RepoParser(BaseModel):
     @staticmethod
     def _parse_if_compare(n):
         """
-        Parses an 'if' condition Abstract Syntax Tree (AST) node.
+        解析 'if' 条件的抽象语法树（AST）节点。
 
-        Args:
-            n: The AST node representing an 'if' condition.
+        参数:
+            n: 表示 'if' 条件的 AST 节点。
 
-        Returns:
-            None or Parsed information from the 'if' condition node.
+        返回:
+            None 或者从 'if' 条件节点解析出的信息。
         """
         if hasattr(n, "left"):
             return RepoParser._parse_variable(n.left)
@@ -672,100 +716,100 @@ class RepoParser(BaseModel):
     @staticmethod
     def _parse_variable(node):
         """
-        Parses a variable Abstract Syntax Tree (AST) node.
+        解析变量的抽象语法树（AST）节点。
 
-        Args:
-            node: The AST node representing a variable.
+        参数：
+            node：表示变量的AST节点。
 
-        Returns:
-            None or Parsed information from the variable node.
+        返回：
+            None 或者 解析后的变量信息。
         """
         try:
             funcs = {
-                any_to_str(ast.Constant): lambda x: x.value,
-                any_to_str(ast.Name): lambda x: x.id,
-                any_to_str(ast.Attribute): lambda x: f"{x.value.id}.{x.attr}"
+                any_to_str(ast.Constant): lambda x: x.value,  # 常量节点返回值
+                any_to_str(ast.Name): lambda x: x.id,  # 名称节点返回id
+                any_to_str(ast.Attribute): lambda x: f"{x.value.id}.{x.attr}"  # 属性节点返回格式化的值
                 if hasattr(x.value, "id")
                 else f"{x.attr}",
-                any_to_str(ast.Call): lambda x: RepoParser._parse_variable(x.func),
-                any_to_str(ast.Tuple): lambda x: [d.value for d in x.dims],
+                any_to_str(ast.Call): lambda x: RepoParser._parse_variable(x.func),  # 调用节点解析函数
+                any_to_str(ast.Tuple): lambda x: [d.value for d in x.dims],  # 元组节点返回维度值
             }
-            func = funcs.get(any_to_str(node))
+            func = funcs.get(any_to_str(node))  # 获取对应的解析函数
             if not func:
-                raise NotImplementedError(f"Not implement:{node}")
+                raise NotImplementedError(f"未实现:{node}")  # 如果没有实现解析，抛出异常
             return func(node)
         except Exception as e:
-            logger.warning(f"Unsupported variable:{node}, err:{e}")
+            logger.warning(f"不支持的变量:{node}, 错误:{e}")
 
     @staticmethod
     def _parse_assign(node):
         """
-        Parses an assignment Abstract Syntax Tree (AST) node.
+        解析赋值的抽象语法树（AST）节点。
 
-        Args:
-            node: The AST node representing an assignment.
+        参数：
+            node：表示赋值的AST节点。
 
-        Returns:
-            None or Parsed information from the assignment node.
+        返回：
+            None 或者 解析后的赋值信息。
         """
-        return [RepoParser._parse_variable(t) for t in node.targets]
+        return [RepoParser._parse_variable(t) for t in node.targets]  # 解析赋值目标
 
     async def rebuild_class_views(self, path: str | Path = None):
         """
-        Executes `pylint` to reconstruct the dot format class view repository file.
+        执行`pylint`重新构建点格式的类视图仓库文件。
 
-        Args:
-            path (str | Path): The path to the target directory or file. Default is None.
+        参数：
+            path (str | Path): 目标目录或文件的路径，默认值为 None。
         """
         if not path:
-            path = self.base_directory
+            path = self.base_directory  # 如果没有指定路径，使用默认路径
         path = Path(path)
         if not path.exists():
-            return
-        init_file = path / "__init__.py"
+            return  # 如果路径不存在，返回
+        init_file = path / "__init__.py"  # 检查 __init__.py 文件是否存在
         if not init_file.exists():
-            raise ValueError("Failed to import module __init__ with error:No module named __init__.")
-        command = f"pyreverse {str(path)} -o dot"
+            raise ValueError("无法导入模块 __init__，错误：没有 __init__ 模块。")
+        command = f"pyreverse {str(path)} -o dot"  # 使用 pyreverse 生成 dot 格式文件
         output_dir = path / "__dot__"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(command, shell=True, check=True, cwd=str(output_dir))
+        output_dir.mkdir(parents=True, exist_ok=True)  # 创建输出目录
+        result = subprocess.run(command, shell=True, check=True, cwd=str(output_dir))  # 执行命令
         if result.returncode != 0:
-            raise ValueError(f"{result}")
+            raise ValueError(f"{result}")  # 如果执行失败，抛出异常
         class_view_pathname = output_dir / "classes.dot"
-        class_views = await self._parse_classes(class_view_pathname)
-        relationship_views = await self._parse_class_relationships(class_view_pathname)
+        class_views = await self._parse_classes(class_view_pathname)  # 解析类视图
+        relationship_views = await self._parse_class_relationships(class_view_pathname)  # 解析类关系
         packages_pathname = output_dir / "packages.dot"
         class_views, relationship_views, package_root = RepoParser._repair_namespaces(
             class_views=class_views, relationship_views=relationship_views, path=path
-        )
-        class_view_pathname.unlink(missing_ok=True)
+        )  # 修复命名空间
+        class_view_pathname.unlink(missing_ok=True)  # 删除临时文件
         packages_pathname.unlink(missing_ok=True)
         return class_views, relationship_views, package_root
 
     @staticmethod
     async def _parse_classes(class_view_pathname: Path) -> List[DotClassInfo]:
         """
-        Parses a dot format class view repository file.
+        解析点格式的类视图仓库文件。
 
-        Args:
-            class_view_pathname (Path): The path to the dot format class view repository file.
+        参数：
+            class_view_pathname (Path): 点格式类视图仓库文件的路径。
 
-        Returns:
-            List[DotClassInfo]: A list of DotClassInfo objects representing the parsed classes.
+        返回：
+            List[DotClassInfo]: 解析后的 DotClassInfo 对象列表。
         """
         class_views = []
         if not class_view_pathname.exists():
-            return class_views
-        data = await aread(filename=class_view_pathname, encoding="utf-8")
-        lines = data.split("\n")
+            return class_views  # 如果文件不存在，返回空列表
+        data = await aread(filename=class_view_pathname, encoding="utf-8")  # 读取文件内容
+        lines = data.split("\n")  # 按行分割数据
         for line in lines:
-            package_name, info = RepoParser._split_class_line(line)
+            package_name, info = RepoParser._split_class_line(line)  # 解析类信息
             if not package_name:
                 continue
-            class_name, members, functions = re.split(r"(?<!\\)\|", info)
+            class_name, members, functions = re.split(r"(?<!\\)\|", info)  # 分割类成员和方法
             class_info = DotClassInfo(name=class_name)
             class_info.package = package_name
-            for m in members.split("\n"):
+            for m in members.split("\n"):  # 解析类成员
                 if not m:
                     continue
                 attr = DotClassAttribute.parse(m)
@@ -773,7 +817,7 @@ class RepoParser(BaseModel):
                 for i in attr.compositions:
                     if i not in class_info.compositions:
                         class_info.compositions.append(i)
-            for f in functions.split("\n"):
+            for f in functions.split("\n"):  # 解析类方法
                 if not f:
                     continue
                 method = DotClassMethod.parse(f)
@@ -781,126 +825,124 @@ class RepoParser(BaseModel):
                 for i in method.aggregations:
                     if i not in class_info.compositions and i not in class_info.aggregations:
                         class_info.aggregations.append(i)
-            class_views.append(class_info)
+            class_views.append(class_info)  # 添加解析的类视图
         return class_views
 
     @staticmethod
     async def _parse_class_relationships(class_view_pathname: Path) -> List[DotClassRelationship]:
         """
-        Parses a dot format class view repository file.
+        解析点格式的类关系仓库文件。
 
-        Args:
-            class_view_pathname (Path): The path to the dot format class view repository file.
+        参数：
+            class_view_pathname (Path): 点格式类关系仓库文件的路径。
 
-        Returns:
-            List[DotClassRelationship]: A list of DotClassRelationship objects representing the parsed class relationships.
+        返回：
+            List[DotClassRelationship]: 解析后的 DotClassRelationship 对象列表。
         """
         relationship_views = []
         if not class_view_pathname.exists():
-            return relationship_views
-        data = await aread(filename=class_view_pathname, encoding="utf-8")
-        lines = data.split("\n")
+            return relationship_views  # 如果文件不存在，返回空列表
+        data = await aread(filename=class_view_pathname, encoding="utf-8")  # 读取文件内容
+        lines = data.split("\n")  # 按行分割数据
         for line in lines:
-            relationship = RepoParser._split_relationship_line(line)
+            relationship = RepoParser._split_relationship_line(line)  # 解析类关系
             if not relationship:
                 continue
-            relationship_views.append(relationship)
+            relationship_views.append(relationship)  # 添加解析的类关系
         return relationship_views
 
     @staticmethod
     def _split_class_line(line: str) -> (str, str):
         """
-        Parses a dot format line about class info and returns the class name part and class members part.
+        解析一个 dot 格式的类信息行，并返回类名部分和类成员部分。
 
-        Args:
-            line (str): The dot format line containing class information.
+        参数:
+            line (str): 包含类信息的 dot 格式行。
 
-        Returns:
-            Tuple[str, str]: A tuple containing the class name part and class members part.
+        返回:
+            Tuple[str, str]: 返回一个包含类名部分和类成员部分的元组。
         """
-        part_splitor = '" ['
+        part_splitor = '" ['  # 定义分隔符
         if part_splitor not in line:
             return None, None
-        ix = line.find(part_splitor)
-        class_name = line[0:ix].replace('"', "")
+        ix = line.find(part_splitor)  # 查找分隔符的位置
+        class_name = line[0:ix].replace('"', "")  # 获取类名并去除引号
         left = line[ix:]
         begin_flag = "label=<{"
         end_flag = "}>"
         if begin_flag not in left or end_flag not in left:
             return None, None
-        bix = left.find(begin_flag)
-        eix = left.rfind(end_flag)
-        info = left[bix + len(begin_flag) : eix]
-        info = re.sub(r"<br[^>]*>", "\n", info)
+        bix = left.find(begin_flag)  # 查找标签开始的位置
+        eix = left.rfind(end_flag)  # 查找标签结束的位置
+        info = left[bix + len(begin_flag): eix]  # 获取类成员信息
+        info = re.sub(r"<br[^>]*>", "\n", info)  # 将<br>标签替换为换行符
         return class_name, info
 
     @staticmethod
     def _split_relationship_line(line: str) -> DotClassRelationship:
         """
-        Parses a dot format line about the relationship of two classes and returns 'Generalize', 'Composite',
-        or 'Aggregate'.
+        解析一个 dot 格式的类关系行，并返回关系类型（Generalize，Composite，或 Aggregate）。
 
-        Args:
-            line (str): The dot format line containing relationship information.
+        参数:
+            line (str): 包含类关系信息的 dot 格式行。
 
-        Returns:
-            DotClassRelationship: The object of relationship representing either 'Generalize', 'Composite',
-            or 'Aggregate' relationship.
+        返回:
+            DotClassRelationship: 返回表示关系类型的 DotClassRelationship 对象。
         """
-        splitters = [" -> ", " [", "];"]
+        splitters = [" -> ", " [", "];"]  # 定义分隔符
         idxs = []
         for tag in splitters:
             if tag not in line:
                 return None
-            idxs.append(line.find(tag))
-        ret = DotClassRelationship()
-        ret.src = line[0 : idxs[0]].strip('"')
-        ret.dest = line[idxs[0] + len(splitters[0]) : idxs[1]].strip('"')
-        properties = line[idxs[1] + len(splitters[1]) : idxs[2]].strip(" ")
+            idxs.append(line.find(tag))  # 查找各个分隔符的位置
+        ret = DotClassRelationship()  # 创建一个关系对象
+        ret.src = line[0: idxs[0]].strip('"')  # 获取源类
+        ret.dest = line[idxs[0] + len(splitters[0]): idxs[1]].strip('"')  # 获取目标类
+        properties = line[idxs[1] + len(splitters[1]): idxs[2]].strip(" ")  # 获取关系的属性
         mappings = {
-            'arrowhead="empty"': GENERALIZATION,
-            'arrowhead="diamond"': COMPOSITION,
-            'arrowhead="odiamond"': AGGREGATION,
+            'arrowhead="empty"': GENERALIZATION,  # 一般化关系
+            'arrowhead="diamond"': COMPOSITION,  # 组合关系
+            'arrowhead="odiamond"': AGGREGATION,  # 聚合关系
         }
         for k, v in mappings.items():
-            if k in properties:
+            if k in properties:  # 根据属性确定关系类型
                 ret.relationship = v
                 if v != GENERALIZATION:
-                    ret.label = RepoParser._get_label(properties)
+                    ret.label = RepoParser._get_label(properties)  # 获取标签
                 break
         return ret
 
     @staticmethod
     def _get_label(line: str) -> str:
         """
-        Parses a dot format line and returns the label information.
+        解析 dot 格式行并返回标签信息。
 
-        Args:
-            line (str): The dot format line containing label information.
+        参数:
+            line (str): 包含标签信息的 dot 格式行。
 
-        Returns:
-            str: The label information parsed from the line.
+        返回:
+            str: 从行中解析出的标签信息。
         """
         tag = 'label="'
         if tag not in line:
             return ""
-        ix = line.find(tag)
-        eix = line.find('"', ix + len(tag))
-        return line[ix + len(tag) : eix]
+        ix = line.find(tag)  # 查找标签的起始位置
+        eix = line.find('"', ix + len(tag))  # 查找标签的结束位置
+        return line[ix + len(tag): eix]
 
     @staticmethod
     def _create_path_mapping(path: str | Path) -> Dict[str, str]:
         """
-        Creates a mapping table between source code files' paths and module names.
+        创建源代码文件路径与模块名称之间的映射表。
 
-        Args:
-            path (str | Path): The path to the source code files or directory.
+        参数:
+            path (str | Path): 源代码文件或目录的路径。
 
-        Returns:
-            Dict[str, str]: A dictionary mapping source code file paths to their corresponding module names.
+        返回:
+            Dict[str, str]: 一个字典，将源代码文件路径映射到对应的模块名称。
         """
         mappings = {
-            str(path).replace("/", "."): str(path),
+            str(path).replace("/", "."): str(path),  # 将路径中的“/”替换为“.”
         }
         files = []
         try:
@@ -911,66 +953,64 @@ class RepoParser(BaseModel):
                 if file_path.is_file():
                     files.append(str(file_path))
                 else:
-                    subfolder_files = RepoParser._create_path_mapping(path=file_path)
+                    subfolder_files = RepoParser._create_path_mapping(path=file_path)  # 递归处理子目录
                     mappings.update(subfolder_files)
         except Exception as e:
             logger.error(f"Error: {e}")
         for f in files:
-            mappings[str(Path(f).with_suffix("")).replace("/", ".")] = str(f)
+            mappings[str(Path(f).with_suffix("")).replace("/", ".")] = str(f)  # 将文件路径添加到映射中
 
         return mappings
 
     @staticmethod
     def _repair_namespaces(
-        class_views: List[DotClassInfo], relationship_views: List[DotClassRelationship], path: str | Path
+            class_views: List[DotClassInfo], relationship_views: List[DotClassRelationship], path: str | Path
     ) -> (List[DotClassInfo], List[DotClassRelationship], str):
         """
-        Augments namespaces to the path-prefixed classes and relationships.
+        增强命名空间，将类和关系中的路径前缀补充到类和关系中。
 
-        Args:
-            class_views (List[DotClassInfo]): List of DotClassInfo objects representing class views.
-            relationship_views (List[DotClassRelationship]): List of DotClassRelationship objects representing
-                relationships.
-            path (str | Path): The path to the source code files or directory.
+        参数:
+            class_views (List[DotClassInfo]): 代表类视图的 DotClassInfo 对象列表。
+            relationship_views (List[DotClassRelationship]): 代表类关系的 DotClassRelationship 对象列表。
+            path (str | Path): 源代码文件或目录的路径。
 
-        Returns:
-            Tuple[List[DotClassInfo], List[DotClassRelationship], str]: A tuple containing the augmented class views,
-            relationships, and the root path of the package.
+        返回:
+            Tuple[List[DotClassInfo], List[DotClassRelationship], str]: 返回增强后的类视图、关系和包的根路径。
         """
         if not class_views:
             return [], [], ""
         c = class_views[0]
         full_key = str(path).lstrip("/").replace("/", ".")
-        root_namespace = RepoParser._find_root(full_key, c.package)
-        root_path = root_namespace.replace(".", "/")
+        root_namespace = RepoParser._find_root(full_key, c.package)  # 查找根命名空间
+        root_path = root_namespace.replace(".", "/")  # 获取根路径
 
-        mappings = RepoParser._create_path_mapping(path=path)
+        mappings = RepoParser._create_path_mapping(path=path)  # 获取路径映射
         new_mappings = {}
         ix_root_namespace = len(root_namespace)
         ix_root_path = len(root_path)
         for k, v in mappings.items():
-            nk = k[ix_root_namespace:]
-            nv = v[ix_root_path:]
-            new_mappings[nk] = nv
+            nk = k[ix_root_namespace:]  # 去掉根命名空间的部分
+            nv = v[ix_root_path:]  # 去掉根路径的部分
+            new_mappings[nk] = nv  # 更新映射
 
         for c in class_views:
-            c.package = RepoParser._repair_ns(c.package, new_mappings)
+            c.package = RepoParser._repair_ns(c.package, new_mappings)  # 修复命名空间
         for _, v in enumerate(relationship_views):
-            v.src = RepoParser._repair_ns(v.src, new_mappings)
-            v.dest = RepoParser._repair_ns(v.dest, new_mappings)
+            v.src = RepoParser._repair_ns(v.src, new_mappings)  # 修复源类命名空间
+            v.dest = RepoParser._repair_ns(v.dest, new_mappings)  # 修复目标类命名空间
         return class_views, relationship_views, str(path)[: len(root_path)]
 
     @staticmethod
     def _repair_ns(package: str, mappings: Dict[str, str]) -> str:
         """
-        Replaces the package-prefix with the namespace-prefix.
+        将包前缀替换为命名空间前缀。
 
-        Args:
-            package (str): The package to be repaired.
-            mappings (Dict[str, str]): A dictionary mapping source code file paths to their corresponding packages.
+        参数:
+            package (str): 需要修复的包名。
+            mappings (Dict[str, str]): 一个字典，映射源代码文件路径到其对应的包名。
 
-        Returns:
-            str: The repaired namespace.
+        返回:
+            str: 修复后的命名空间。
         """
         file_ns = package
         ix = 0
@@ -982,21 +1022,21 @@ class RepoParser(BaseModel):
             break
         if file_ns == "":
             return ""
-        internal_ns = package[ix + 1 :]
+        internal_ns = package[ix + 1:]
         ns = mappings[file_ns] + ":" + internal_ns.replace(".", ":")
         return ns
 
     @staticmethod
     def _find_root(full_key: str, package: str) -> str:
         """
-        Returns the package root path based on the key, which is the full path, and the package information.
+        根据键（即完整路径）和包信息，返回包的根路径。
 
-        Args:
-            full_key (str): The full key representing the full path.
-            package (str): The package information.
+        参数:
+            full_key (str): 代表完整路径的键。
+            package (str): 包信息。
 
-        Returns:
-            str: The package root path.
+        返回:
+            str: 包的根路径。
         """
         left = full_key
         while left != "":
@@ -1005,19 +1045,19 @@ class RepoParser(BaseModel):
             if "." not in left:
                 break
             ix = left.find(".")
-            left = left[ix + 1 :]
+            left = left[ix + 1:]
         ix = full_key.rfind(left)
         return "." + full_key[0:ix]
 
 
 def is_func(node) -> bool:
     """
-    Returns True if the given node represents a function.
+    如果给定的节点表示一个函数，返回 True。
 
-    Args:
-        node: The Abstract Syntax Tree (AST) node.
+    参数:
+        node: 抽象语法树（AST）节点。
 
-    Returns:
-        bool: True if the node represents a function, False otherwise.
+    返回:
+        bool: 如果节点表示一个函数，返回 True；否则返回 False。
     """
     return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
