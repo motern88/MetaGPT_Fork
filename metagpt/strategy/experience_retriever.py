@@ -4,26 +4,53 @@ from pydantic import BaseModel
 
 
 class ExpRetriever(BaseModel):
-    """interface for experience retriever"""
+    """经验检索器接口，定义了检索经验的方法。"""
 
     def retrieve(self, context: str = "") -> str:
+        """该方法需要在子类中实现，用于根据给定上下文检索经验。
+
+        参数:
+            context (str): 上下文信息，用于检索相关经验。
+
+        返回:
+            str: 检索到的经验。
+        """
         raise NotImplementedError
 
 
 class DummyExpRetriever(ExpRetriever):
-    """A dummy experience retriever that returns empty string."""
+    """一个虚拟的经验检索器，返回空字符串。"""
 
     def retrieve(self, context: str = "") -> str:
+        """返回一个空字符串作为经验。
+
+        参数:
+            context (str): 上下文信息（不会被使用）。
+
+        返回:
+            str: 返回一个空字符串。
+        """
         return self.EXAMPLE
 
-    EXAMPLE: str = ""
+    EXAMPLE: str = ""  # 默认返回的经验为空字符串。
 
 
 class TRDAllExpRetriever(ExpRetriever):
+    """一个具体的经验检索器，返回指定的经验字符串。"""
+
     def retrieve(self, context: str = "") -> str:
+        """根据给定上下文返回指定的经验。
+
+        参数:
+            context (str): 上下文信息，用于决定返回的经验。
+
+        返回:
+            str: 返回的经验。
+        """
         return self.EXAMPLE
 
-    EXAMPLE: str = """
+    EXAMPLE: str = """ 
+
 ## example 1
 User Requirement: Given some user requirements, write a software framework.
 Explanation: Given a complete user requirement, to write a TRD and software framework, you must follow all of the following steps to complete the TRD output required by the user: 1. Call 'write_trd' to generate TRD; 2. Call 'write_framework' to implement TRD into the software framework.
@@ -238,9 +265,17 @@ Explanation:
 
 
 class TRDToolExpRetriever(ExpRetriever):
-    """A TRD-related experience retriever that returns empty string."""
+    """一个与TRD相关的经验检索器，返回一个指定的经验字符串（在此示例中为空字符串）。"""
 
     def retrieve(self, context: str = "") -> str:
+        """根据上下文返回指定的经验。
+
+        参数:
+            context (str): 上下文信息，用于决定返回的经验。
+
+        返回:
+            str: 返回的经验内容，当前实现返回空字符串。
+        """
         return self.EXAMPLE
 
     EXAMPLE: str = """
@@ -295,9 +330,17 @@ Explanation: Given a complete user requirement, to write a TRD and software fram
 
 
 class TRDExpRetriever(ExpRetriever):
-    """A TRD-related experience retriever that returns empty string."""
+    """一个与TRD相关的经验检索器，返回指定的经验字符串（在此示例中为空字符串）。"""
 
     def retrieve(self, context: str = "") -> str:
+        """根据上下文返回指定的经验。
+
+        参数:
+            context (str): 上下文信息，用于决定返回的经验。
+
+        返回:
+            str: 返回的经验内容，当前实现返回空字符串。
+        """
         return self.EXAMPLE
 
     EXAMPLE: str = """
@@ -649,29 +692,49 @@ Explanation: "I attempted to locate historical records containing 'send to [<all
 
 
 class SimpleExpRetriever(ExpRetriever):
-    """A simple experience retriever that returns manually crafted examples."""
+    """一个简单的经验检索器，返回手动制作的示例。"""
 
     def retrieve(self, context: str = "") -> str:
+        """根据上下文返回一个手动制作的经验示例。
+
+        参数:
+            context (str): 上下文信息，用于决定返回的经验。
+
+        返回:
+            str: 返回的经验示例，当前返回的是 `TL_EXAMPLE`。
+        """
         return TL_EXAMPLE
 
 
 class KeywordExpRetriever(ExpRetriever):
-    """An experience retriever that returns examples based on keywords in the context."""
+    """一个基于上下文中的关键词来返回经验的检索器。"""
 
     def retrieve(self, context: str, exp_type: Literal["plan", "task"] = "plan") -> str:
+        """根据上下文中的关键词来返回相应的经验。
+
+        参数:
+            context (str): 上下文信息，用于决定返回的经验。
+            exp_type (Literal["plan", "task"]): 指定经验的类型，可以是 "plan" 或 "task"。默认为 "plan"。
+
+        返回:
+            str: 返回的经验示例，基于上下文的内容选择合适的经验。
+        """
         if exp_type == "plan":
+            # 根据上下文中的关键词返回不同的经验示例
             if "deploy" in context.lower():
-                return DEPLOY_EXAMPLE
+                return DEPLOY_EXAMPLE  # 如果上下文中包含 "deploy"，返回部署相关的示例
             elif "issue" in context.lower():
-                return FIX_ISSUE_EXAMPLE
+                return FIX_ISSUE_EXAMPLE  # 如果上下文中包含 "issue"，返回修复问题的示例
             elif "https:" in context.lower() or "http:" in context.lower() or "search" in context.lower():
+                # 如果上下文中包含 URL 或 "search"，返回网页抓取相关的示例
                 if "search" in context.lower() or "click" in context.lower():
-                    return WEB_SCRAPING_EXAMPLE
-                return WEB_SCRAPING_EXAMPLE_SIMPLE
+                    return WEB_SCRAPING_EXAMPLE  # 返回更详细的网页抓取示例
+                return WEB_SCRAPING_EXAMPLE_SIMPLE  # 返回简单的网页抓取示例
+        # 如果经验类型是 "task"，可以根据任务相关的关键词返回经验（目前注释掉）
         # elif exp_type == "task":
         #     if "diagnose" in context.lower():
-        #         return SEARCH_SYMBOL_EXAMPLE
-        return ""
+        #         return SEARCH_SYMBOL_EXAMPLE  # 如果上下文中包含 "diagnose"，返回搜索符号的示例
+        return ""  # 如果没有匹配的关键词，返回空字符串
 
 
 DEPLOY_EXAMPLE = """

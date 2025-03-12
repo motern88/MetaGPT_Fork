@@ -56,25 +56,42 @@ Specifically, {guidance}
 
 
 class Planner(BaseModel):
-    plan: Plan
+    """规划器类，负责处理任务的计划、更新、确认和执行过程。"""
+
+    plan: Plan  # 计划对象
     working_memory: Memory = Field(
         default_factory=Memory
-    )  # memory for working on each task, discarded each time a task is done
-    auto_run: bool = False
+    )  # 工作内存，用于处理每个任务，任务完成后会清除
+    auto_run: bool = False  # 是否自动运行
 
     def __init__(self, goal: str = "", plan: Plan = None, **kwargs):
+        """初始化规划器，若没有指定计划，则根据目标创建一个新的计划。
+
+        参数:
+            goal (str): 任务目标。
+            plan (Plan): 已存在的计划。
+        """
         plan = plan or Plan(goal=goal)
         super().__init__(plan=plan, **kwargs)
 
     @property
     def current_task(self):
+        """返回当前任务"""
         return self.plan.current_task
 
     @property
     def current_task_id(self):
+        """返回当前任务的ID"""
         return self.plan.current_task_id
 
     async def update_plan(self, goal: str = "", max_tasks: int = 3, max_retries: int = 3):
+        """更新计划，重新生成新的任务计划。
+
+        参数:
+            goal (str): 新的目标。
+            max_tasks (int): 最大任务数。
+            max_retries (int): 最大重试次数。
+        """
         if goal:
             self.plan = Plan(goal=goal)
 
@@ -84,10 +101,10 @@ class Planner(BaseModel):
             rsp = await WritePlan().run(context, max_tasks=max_tasks)
             self.working_memory.add(Message(content=rsp, role="assistant", cause_by=WritePlan))
 
-            # precheck plan before asking reviews
+            # 在请求确认之前预检查生成的计划
             is_plan_valid, error = precheck_update_plan_from_rsp(rsp, self.plan)
             if not is_plan_valid and max_retries > 0:
-                error_msg = f"The generated plan is not valid with error: {error}, try regenerating, remember to generate either the whole plan or the single changed task only"
+                error_msg = f"生成的计划无效，错误信息: {error}，尝试重新生成计划，记得生成整个计划或仅生成更改的任务"
                 logger.warning(error_msg)
                 self.working_memory.add(Message(content=error_msg, role="assistant", cause_by=WritePlan))
                 max_retries -= 1
@@ -100,20 +117,24 @@ class Planner(BaseModel):
         self.working_memory.clear()
 
     async def process_task_result(self, task_result: TaskResult):
-        # ask for acceptance, users can other refuse and change tasks in the plan
+        """处理任务执行结果。
+
+        参数:
+            task_result (TaskResult): 任务结果。
+        """
+        # 请求确认，用户可以拒绝并更改计划中的任务
         review, task_result_confirmed = await self.ask_review(task_result)
 
         if task_result_confirmed:
-            # tick off this task and record progress
+            # 确认任务完成，并记录进展
             await self.confirm_task(self.current_task, task_result, review)
 
         elif "redo" in review:
-            # Ask the Role to redo this task with help of review feedback,
-            # useful when the code run is successful but the procedure or result is not what we want
-            pass  # simply pass, not confirming the result
+            # 如果任务需要重做，用户可能给出了重做请求
+            pass  # 如果任务重做，跳过确认结果
 
         else:
-            # update plan according to user's feedback and to take on changed tasks
+            # 根据用户反馈更新计划，处理已更改的任务
             await self.update_plan()
 
     async def ask_review(
@@ -123,10 +144,16 @@ class Planner(BaseModel):
         trigger: str = ReviewConst.TASK_REVIEW_TRIGGER,
         review_context_len: int = 5,
     ):
-        """
-        Ask to review the task result, reviewer needs to provide confirmation or request change.
-        If human confirms the task result, then we deem the task completed, regardless of whether the code run succeeds;
-        if auto mode, then the code run has to succeed for the task to be considered completed.
+        """请求任务结果审查，审查者需要确认或要求更改。
+
+        参数:
+            task_result (TaskResult): 任务执行结果。
+            auto_run (bool): 是否自动运行，默认使用类中的设置。
+            trigger (str): 触发器，用于任务审查。
+            review_context_len (int): 审查时上下文的长度。
+
+        返回:
+            tuple: 审查结果和确认标志。
         """
         auto_run = auto_run if auto_run is not None else self.auto_run
         if not auto_run:
@@ -141,19 +168,26 @@ class Planner(BaseModel):
         return "", confirmed
 
     async def confirm_task(self, task: Task, task_result: TaskResult, review: str):
+        """确认任务并根据任务结果更新计划。
+
+        参数:
+            task (Task): 当前任务。
+            task_result (TaskResult): 任务结果。
+            review (str): 审查反馈。
+        """
         task.update_task_result(task_result=task_result)
         self.plan.finish_current_task()
         self.working_memory.clear()
 
         confirmed_and_more = (
             ReviewConst.CONTINUE_WORDS[0] in review.lower() and review.lower() not in ReviewConst.CONTINUE_WORDS[0]
-        )  # "confirm, ... (more content, such as changing downstream tasks)"
+        )  # "confirm, ... (更多内容，比如更改下游任务)"
         if confirmed_and_more:
             self.working_memory.add(Message(content=review, role="user", cause_by=AskReview))
             await self.update_plan()
 
     def get_useful_memories(self, task_exclude_field=None) -> list[Message]:
-        """find useful memories only to reduce context length and improve performance"""
+        """仅获取有用的记忆，减少上下文长度并提高性能"""
         user_requirement = self.plan.goal
         context = self.plan.context
         tasks = [task.dict(exclude=task_exclude_field) for task in self.plan.tasks]
@@ -167,7 +201,7 @@ class Planner(BaseModel):
         return context_msg + self.working_memory.get()
 
     def get_plan_status(self, exclude: List[str] = None) -> str:
-        # prepare components of a plan status
+        """准备并返回计划状态的组成部分"""
         exclude = exclude or []
         exclude_prompt = "omit here"
         finished_tasks = self.plan.get_finished_tasks()
@@ -179,7 +213,7 @@ class Planner(BaseModel):
         task_type = TaskType.get_type(task_type_name)
         guidance = task_type.guidance if task_type else ""
 
-        # combine components in a prompt
+        # 将各个部分组合成一个完整的计划状态
         prompt = PLAN_STATUS.format(
             code_written=code_written if "code" not in exclude else exclude_prompt,
             task_results=task_results if "task_result" not in exclude else exclude_prompt,
