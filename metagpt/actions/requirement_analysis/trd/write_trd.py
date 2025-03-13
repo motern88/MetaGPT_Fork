@@ -16,9 +16,9 @@ from metagpt.utils.common import general_after_log, to_markdown_code_block
 
 @register_tool(include_functions=["run"])
 class WriteTRD(Action):
-    """WriteTRD deal with the following situations:
-    1. Given some new user requirements, write out a new TRD(Technical Requirements Document).
-    2. Given some incremental user requirements, update the legacy TRD.
+    """WriteTRD 处理以下情况：
+    1. 给定一些新的用户需求，写出一份新的技术需求文档（TRD）。
+    2. 给定一些增量的用户需求，更新旧版的技术需求文档（TRD）。
     """
 
     async def run(
@@ -35,30 +35,30 @@ class WriteTRD(Action):
         legacy_user_requirements_interaction_events: str = "",
     ) -> str:
         """
-        Handles the writing or updating of a Technical Requirements Document (TRD) based on user requirements.
+        根据用户需求处理技术需求文档（TRD）的编写或更新。
 
-        Args:
-            user_requirements (str): The new/incremental user requirements.
-            use_case_actors (str): Description of the actors involved in the use case.
-            available_external_interfaces (str): List of available external interfaces.
-            evaluation_conclusion (str, optional): The conclusion of the evaluation of the TRD written by you. Defaults to an empty string.
-            interaction_events (str): The interaction events related to the user requirements that you are handling.
-            previous_version_trd (str, optional): The previous version of the TRD written by you, for updating.
-            legacy_user_requirements (str, optional): Existing user requirements handled by an external object for your use. Defaults to an empty string.
-            legacy_user_requirements_trd (str, optional): The TRD associated with the existing user requirements handled by an external object for your use. Defaults to an empty string.
-            legacy_user_requirements_interaction_events (str, optional): Interaction events related to the existing user requirements handled by an external object for your use. Defaults to an empty string.
+        参数：
+            user_requirements (str): 新的/增量的用户需求。
+            use_case_actors (str): 用例中涉及的参与者描述。
+            available_external_interfaces (str): 可用的外部接口列表。
+            evaluation_conclusion (str, 可选): 评估您编写的 TRD 的结论，默认为空字符串。
+            interaction_events (str): 与您处理的用户需求相关的交互事件。
+            previous_version_trd (str, 可选): 您编写的 TRD 的上一版本，用于更新。
+            legacy_user_requirements (str, 可选): 外部对象处理的现有用户需求供您使用，默认为空字符串。
+            legacy_user_requirements_trd (str, 可选): 与现有用户需求相关的 TRD，由外部对象处理，供您使用，默认为空字符串。
+            legacy_user_requirements_interaction_events (str, 可选): 与现有用户需求相关的交互事件，由外部对象处理，供您使用，默认为空字符串。
 
-        Returns:
-            str: The newly created or updated TRD written by you.
+        返回：
+            str: 由您编写的新的或更新后的 TRD。
 
-        Example:
-            >>> # Given a new user requirements, write out a new TRD.
-            >>> user_requirements = "Write a 'snake game' TRD."
-            >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
-            >>> available_external_interfaces = "The available external interfaces returned by `CompressExternalInterfaces.run` are ..."
-            >>> previous_version_trd = "TRD ..." # The last version of the TRD written out if there is.
-            >>> evaluation_conclusion = "Conclusion ..." # The conclusion returned by `EvaluateTRD.run` if there is.
-            >>> interaction_events = "Interaction ..." # The interaction events returned by `DetectInteraction.run`.
+        示例：
+            >>> # 给定新的用户需求，编写一份新的 TRD。
+            >>> user_requirements = "编写一个 '贪吃蛇游戏' 的 TRD。"
+            >>> use_case_actors = "- 参与者：游戏玩家;\\n- 系统：贪吃蛇游戏; \\n- 外部系统：游戏中心;"
+            >>> available_external_interfaces = "`CompressExternalInterfaces.run` 返回的可用外部接口是 ..."
+            >>> previous_version_trd = "TRD ..." # 如果有的话，上一版本的 TRD。
+            >>> evaluation_conclusion = "结论 ..." # 如果有的话，`EvaluateTRD.run` 返回的结论。
+            >>> interaction_events = "交互事件 ..." # `DetectInteraction.run` 返回的交互事件。
             >>> write_trd = WriteTRD()
             >>> new_version_trd = await write_trd.run(
             >>>     user_requirements=user_requirements,
@@ -69,17 +69,17 @@ class WriteTRD(Action):
             >>>     previous_version_trd=previous_version_trd,
             >>> )
             >>> print(new_version_trd)
-            ## Technical Requirements Document\n ...
+            ## 技术需求文档\n ...
 
-            >>> # Given an incremental requirements, update the legacy TRD.
-            >>> legacy_user_requirements = ["User requirements 1. ...", "User requirements 2. ...", ...]
-            >>> legacy_user_requirements_trd = "## Technical Requirements Document\\n ..." # The TRD before integrating more user requirements.
-            >>> legacy_user_requirements_interaction_events = ["The interaction events list of user requirements 1 ...", "The interaction events list of user requiremnts 2 ...", ...]
-            >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
-            >>> available_external_interfaces = "The available external interfaces returned by `CompressExternalInterfaces.run` are ..."
-            >>> increment_requirements = "The incremental user requirements are ..."
-            >>> evaluation_conclusion = "Conclusion ..." # The conclusion returned by `EvaluateTRD.run` if there is.
-            >>> previous_version_trd = "TRD ..." # The last version of the TRD written out if there is.
+            >>> # 给定增量需求，更新旧版 TRD。
+            >>> legacy_user_requirements = ["用户需求 1. ...", "用户需求 2. ...", ...]
+            >>> legacy_user_requirements_trd = "## 技术需求文档\\n ..." # 在集成更多用户需求之前的 TRD。
+            >>> legacy_user_requirements_interaction_events = ["用户需求 1 的交互事件列表 ...", "用户需求 2 的交互事件列表 ...", ...]
+            >>> use_case_actors = "- 参与者：游戏玩家;\\n- 系统：贪吃蛇游戏; \\n- 外部系统：游戏中心;"
+            >>> available_external_interfaces = "`CompressExternalInterfaces.run` 返回的可用外部接口是 ..."
+            >>> increment_requirements = "增量的用户需求是 ..."
+            >>> evaluation_conclusion = "结论 ..." # 如果有的话，`EvaluateTRD.run` 返回的结论。
+            >>> previous_version_trd = "TRD ..." # 如果有的话，上一版本的 TRD。
             >>> write_trd = WriteTRD()
             >>> new_version_trd = await write_trd.run(
             >>>     user_requirements=increment_requirements,
@@ -93,7 +93,7 @@ class WriteTRD(Action):
             >>>     legacy_user_requirements_interaction_events=str(legacy_user_requirements_interaction_events),
             >>> )
             >>> print(new_version_trd)
-            ## Technical Requirements Document\n ...
+            ## 技术需求文档\n ...
         """
         if legacy_user_requirements:
             return await self._write_incremental_trd(
@@ -174,88 +174,87 @@ class WriteTRD(Action):
 
 
 NEW_PROMPT = """
-## Actor, System, External System
+## 参与者、系统、外部系统
 {use_case_actors}
 
-## User Requirements
+## 用户需求
 {original_user_requirement}
 
-## Available External Interfaces
+## 可用的外部接口
 {available_external_interfaces}
 
-## Legacy TRD
+## 旧版技术需求文档（Legacy TRD）
 {legacy_trd}
 
-## Evaluation Conclusion
+## 评估结论
 {evaluation_conclusion}
 
-## Interaction Events
+## 交互事件
 {interaction_events}
 
 ---
-You are a TRD generator.
-The content of "Actor, System, External System" provides an explanation of actors and systems that appear in UML Use Case diagram;
-The content of "Available External Interfaces" provides the candidate steps, along with the inputs and outputs of each step;
-"User Requirements" provides the original requirements description, any parts not mentioned in this description will be handled by other modules, so do not fabricate requirements;
-"Legacy TRD" provides the old version of the TRD based on the "User Requirements" and can serve as a reference for the new TRD;
-"Evaluation Conclusion" provides a summary of the evaluation of the old TRD in the "Legacy TRD" and can serve as a reference for the new TRD;
-"Interaction Events" provides some identified interaction events and the interacting participants based on the content of the "User Requirements";
-1. What inputs and outputs are described in the "User Requirements"?
-2. How many steps are needed to achieve the inputs and outputs described in the "User Requirements"? Which actors from the "Actor, System, External System" section are involved in each step? What are the inputs and outputs of each step? Where is this output used, for example, as input for which interface or where it is required in the requirements, etc.?
-3. Output a complete Technical Requirements Document (TRD)：
-  3.1. In the description, use the actor and system names defined in the "Actor, System, External System" section to describe the interactors;
-  3.2. The content should include the original text of the requirements from "User Requirements";
-  3.3. In the TRD, each step can involve a maximum of two participants. If there are more than two participants, the step needs to be further split;
-  3.4. In the TRD, each step must include detailed descriptions, inputs, outputs, participants, initiator, and the rationale for the step's existence. The rationale should reference the original text to justify it, such as specifying which interface requires the output of this step as parameters or where in the requirements this step is mandated, etc.;
-  3.5. In the TRD, if you need to call interfaces of external systems, you must explicitly specify the interface IDs of the external systems you want to call;
+你是一个技术需求文档（TRD）生成器。
+"参与者、系统、外部系统"部分提供了UML用例图中出现的参与者和系统的说明；
+"可用的外部接口"部分提供了每个步骤的候选步骤，以及每个步骤的输入和输出；
+"用户需求"部分提供了原始需求描述，任何未提到的部分将由其他模块处理，所以不要编造需求；
+"旧版技术需求文档"部分提供了基于"用户需求"生成的旧版TRD，可以作为新版TRD的参考；
+"评估结论"部分提供了对旧版TRD的评估总结，可以作为新版TRD的参考；
+"交互事件"部分提供了根据"用户需求"识别的交互事件及其交互参与者；
+1. "用户需求"中描述了哪些输入和输出？
+2. 为了实现"用户需求"中描述的输入和输出，至少需要多少步骤？每个步骤涉及哪些来自"参与者、系统、外部系统"部分的参与者？每个步骤的输入和输出是什么？这些输出在哪里使用，例如，作为哪个接口的输入或在哪些需求中需要等？
+3. 输出完整的技术需求文档（TRD）：
+  3.1. 在描述中，使用"参与者、系统、外部系统"部分定义的参与者和系统来描述交互者；
+  3.2. 内容应包含"用户需求"的原始文本；
+  3.3. 在TRD中，每个步骤最多涉及两个参与者。如果有超过两个参与者，步骤需要进一步拆分；
+  3.4. 在TRD中，每个步骤必须包括详细的描述、输入、输出、参与者、发起者和步骤存在的理由。理由应参考原始文本来解释，例如，指定哪个接口需要此步骤的输出作为参数，或在需求中说明此步骤的必要性；
+  3.5. 在TRD中，如果需要调用外部系统的接口，必须明确指定你要调用的外部系统的接口ID；
 """
 
 INCREMENTAL_PROMPT = """
-## Actor, System, External System
+## 参与者、系统、外部系统
 {use_case_actors}
 
-## Legacy User Requirements
+## 旧版用户需求
 {legacy_user_requirements}
 
-## Available External Interfaces
+## 可用的外部接口
 {available_external_interfaces}
 
-## The TRD of Legacy User Requirements
+## 旧版用户需求的技术需求文档（TRD）
 {legacy_user_requirements_trd}
 
-
-## The Interaction Events of Legacy User Requirements
+## 旧版用户需求的交互事件
 {legacy_user_requirements_interaction_events}
 
-## Incremental Requirements
+## 增量需求
 {incremental_user_requirements}
 
-## Legacy TRD
+## 旧版技术需求文档（Legacy TRD）
 {previous_version_trd}
 
-## Evaluation Conclusion
+## 评估结论
 {evaluation_conclusion}
 
-## Interaction Events
+## 交互事件
 {incremental_user_requirements_interaction_events}
 
 ---
-You are a TRD generator.
-The content of "Actor, System, External System" provides an explanation of actors and systems that appear in UML Use Case diagram;
-The content of "Available External Interfaces" provides the candidate steps, along with the inputs and outputs of each step;
-"Legacy User Requirements" provides the original requirements description handled by other modules for your use;
-"The TRD of Legacy User Requirements" is the TRD generated by other modules based on the "Legacy User Requirements" for your use;
-"The Interaction Events of Legacy User Requirements" is the interaction events list generated by other modules based on the "Legacy User Requirements" for your use;
-"Incremental Requirements" provides the original requirements description that you need to address, any parts not mentioned in this description will be handled by other modules, so do not fabricate requirements;
-The requirements in "Legacy User Requirements" combined with the "Incremental Requirements" form a complete set of requirements, therefore, you need to add the TRD portion of the "Incremental Requirements" to "The TRD of Legacy User Requirements", the added content must not conflict with the original content of "The TRD of Legacy User Requirements";
-"Legacy TRD" provides the old version of the TRD you previously wrote based on the "Incremental Requirements" and can serve as a reference for the new TRD;
-"Evaluation Conclusion" provides a summary of the evaluation of the old TRD you generated in the "Legacy TRD", and the identified issues can serve as a reference for the new TRD you create;
-"Interaction Events" provides some identified interaction events and the interacting participants based on the content of the "Incremental Requirements";
-1. What inputs and outputs are described in the "Incremental Requirements"？
-2. How many steps are needed to achieve the inputs and outputs described in the "Incremental Requirements"? Which actors from the "Actor, System, External System" section are involved in each step? What are the inputs and outputs of each step? Where is this output used, for example, as input for which interface or where it is required in the requirements, etc.?
-3. Output a complete Technical Requirements Document (TRD)：
-  3.1. In the description, use the actor and system names defined in the "Actor, System, External System" section to describe the interactors;
-  3.2. The content should include the original text of the requirements from "User Requirements";
-  3.3. In the TRD, each step can involve a maximum of two participants. If there are more than two participants, the step needs to be further split;
-  3.4. In the TRD, each step must include detailed descriptions, inputs, outputs, participants, initiator, and the rationale for the step's existence. The rationale should reference the original text to justify it, such as specifying which interface requires the output of this step as parameters or where in the requirements this step is mandated, etc.
-    """
+你是一个技术需求文档（TRD）生成器。
+"参与者、系统、外部系统"部分提供了UML用例图中出现的参与者和系统的说明；
+"可用的外部接口"部分提供了每个步骤的候选步骤，以及每个步骤的输入和输出；
+"旧版用户需求"部分提供了由其他模块处理的原始需求描述供你使用；
+"旧版用户需求的技术需求文档"部分是由其他模块基于"旧版用户需求"生成的TRD供你使用；
+"旧版用户需求的交互事件"部分是由其他模块基于"旧版用户需求"生成的交互事件供你使用；
+"增量需求"部分提供了需要你处理的原始需求描述，任何未提到的部分将由其他模块处理，所以不要编造需求；
+"旧版技术需求文档"部分提供了你之前生成的基于"增量需求"的旧版TRD，可以作为新版TRD的参考；
+"评估结论"部分提供了你生成的旧版TRD的评估总结，发现的问题可以作为新版TRD的参考；
+"交互事件"部分提供了根据"增量需求"识别的交互事件及其交互参与者；
+1. "增量需求"中描述了哪些输入和输出？
+2. 为了实现"增量需求"中描述的输入和输出，至少需要多少步骤？每个步骤涉及哪些来自"参与者、系统、外部系统"部分的参与者？每个步骤的输入和输出是什么？这些输出在哪里使用，例如，作为哪个接口的输入或在哪些需求中需要等？
+3. 输出完整的技术需求文档（TRD）：
+  3.1. 在描述中，使用"参与者、系统、外部系统"部分定义的参与者和系统来描述交互者；
+  3.2. 内容应包含"用户需求"的原始文本；
+  3.3. 在TRD中，每个步骤最多涉及两个参与者。如果有超过两个参与者，步骤需要进一步拆分；
+  3.4. 在TRD中，每个步骤必须包括详细的描述、输入、输出、参与者、发起者和步骤存在的理由。理由应参考原始文本来解释，例如，指定哪个接口需要此步骤的输出作为参数，或在需求中说明此步骤的必要性；
+  3.5. 在TRD中，如果需要调用外部系统的接口，必须明确指定你要调用的外部系统的接口ID；
+"""

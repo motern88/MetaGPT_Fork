@@ -58,14 +58,35 @@ class ReverseUseCase(BaseModel):
     reason: str
 
 
+class ReverseUseCase(BaseModel):
+    """
+    代表逆向工程的用例。
+
+    属性:
+        description (str): 逆向用例的描述。
+        inputs (List[str]): 逆向用例的输入列表。
+        outputs (List[str]): 逆向用例的输出列表。
+        actors (List[str]): 参与该逆向用例的角色列表。
+        steps (List[str]): 逆向用例的步骤列表。
+        reason (str): 逆向用例的原因说明。
+    """
+
+    description: str
+    inputs: List[str]
+    outputs: List[str]
+    actors: List[str]
+    steps: List[str]
+    reason: str
+
+
 class ReverseUseCaseDetails(BaseModel):
     """
-    Represents details of a reverse engineered use case.
+    代表逆向工程用例的详细信息。
 
-    Attributes:
-        description (str): A description of the reverse use case details.
-        use_cases (List[ReverseUseCase]): List of reverse use cases.
-        relationship (List[str]): List of relationships associated with the reverse use case details.
+    属性:
+        description (str): 逆向用例详细信息的描述。
+        use_cases (List[ReverseUseCase]): 逆向用例的列表。
+        relationship (List[str]): 与逆向用例相关的关系列表。
     """
 
     description: str
@@ -75,33 +96,38 @@ class ReverseUseCaseDetails(BaseModel):
 
 class RebuildSequenceView(Action):
     """
-    Represents an action to reconstruct sequence view through reverse engineering.
+    代表通过逆向工程重建序列视图的操作。
 
-    Attributes:
-        graph_db (Optional[GraphRepository]): An optional instance of GraphRepository for graph database operations.
+    属性:
+        graph_db (Optional[GraphRepository]): 可选的图数据库操作实例。
     """
 
     graph_db: Optional[GraphRepository] = None
 
     async def run(self, with_messages=None, format=None):
         """
-        Implementation of `Action`'s `run` method.
+        实现 `Action` 的 `run` 方法。
 
-        Args:
-            with_messages (Optional[Type]): An optional argument specifying messages to react to.
-            format (str): The format for the prompt schema.
+        参数:
+            with_messages (Optional[Type]): 可选参数，指定要响应的消息。
+            format (str): 提供的提示格式。
         """
         format = format if format else self.config.prompt_schema
         graph_repo_pathname = self.context.git_repo.workdir / GRAPH_REPO_FILE_REPO / self.context.git_repo.workdir.name
         self.graph_db = await DiGraphRepository.load_from(str(graph_repo_pathname.with_suffix(".json")))
+
+        # 如果没有上下文，则搜索主入口
         if not self.i_context:
             entries = await self._search_main_entry()
         else:
             entries = [SPO(subject=self.i_context, predicate="", object_="")]
+
         for entry in entries:
+            # 重建主序列视图
             await self._rebuild_main_sequence_view(entry)
             while await self._merge_sequence_view(entry):
                 pass
+        # 保存图数据库
         await self.graph_db.save()
 
     @retry(
@@ -111,11 +137,10 @@ class RebuildSequenceView(Action):
     )
     async def _rebuild_main_sequence_view(self, entry: SPO):
         """
-        Reconstruct the sequence diagram for the __main__ entry of the source code through reverse engineering.
+        通过逆向工程重建源代码的序列图。
 
-        Args:
-            entry (SPO): The SPO (Subject, Predicate, Object) object in the graph database that is related to the
-                subject `__name__:__main__`.
+        参数:
+            entry (SPO): 图数据库中与 `__name__:__main__` 相关的 SPO 对象。
         """
         filename = entry.subject.split(":", 1)[0]
         rows = await self.graph_db.select(predicate=GraphKeyword.IS, object_=GraphKeyword.CLASS)
@@ -137,6 +162,7 @@ class RebuildSequenceView(Action):
             if view:
                 class_views.append(view)
 
+            # 收集参与者信息
             actors = await self._get_participants(c.subject)
             participants.update(set(actors))
 
@@ -144,30 +170,36 @@ class RebuildSequenceView(Action):
         for c in classes:
             use_cases = await self._get_class_use_cases(c.subject)
             use_case_blocks.append(use_cases)
+
         prompt_blocks = ["## Use Cases\n" + "\n".join(use_case_blocks)]
         block = "## Participants\n"
         for p in participants:
             block += f"- {p}\n"
         prompt_blocks.append(block)
+
         block = "## Mermaid Class Views\n```mermaid\n"
         block += "\n\n".join([c.get_mermaid() for c in class_views])
         block += "\n```\n"
         prompt_blocks.append(block)
+
         block = "## Source Code\n```python\n"
         block += await self._get_source_code(filename)
         block += "\n```\n"
         prompt_blocks.append(block)
+
         prompt = "\n---\n".join(prompt_blocks)
 
+        # 向 LLM 提交请求，生成 Mermaid 序列图
         rsp = await self.llm.aask(
             msg=prompt,
             system_msgs=[
-                "You are a python code to Mermaid Sequence Diagram translator in function detail.",
-                "Translate the given markdown text to a Mermaid Sequence Diagram.",
-                "Return the merged Mermaid sequence diagram in a markdown code block format.",
+                "你是一个 Python 代码到 Mermaid 序列图的转换器。",
+                "将给定的 Markdown 文本转换为 Mermaid 序列图。",
+                "返回合并后的 Mermaid 序列图，并以 Markdown 代码块格式返回。",
             ],
             stream=False,
         )
+        # 处理 Mermaid 序列图
         sequence_view = rsp.removeprefix("```mermaid").removesuffix("```")
         rows = await self.graph_db.select(subject=entry.subject, predicate=GraphKeyword.HAS_SEQUENCE_VIEW)
         for r in rows:
@@ -189,27 +221,28 @@ class RebuildSequenceView(Action):
 
     async def _merge_sequence_view(self, entry: SPO) -> bool:
         """
-        Augments additional information to the provided SPO (Subject, Predicate, Object) entry in the sequence diagram.
+        为提供的 SPO 入口增强额外信息。
 
-        Args:
-            entry (SPO): The SPO object representing the relationship in the graph database.
+        参数:
+            entry (SPO): 图数据库中的 SPO 对象。
 
-        Returns:
-            bool: True if additional information has been augmented, otherwise False.
+        返回:
+            bool: 如果已增强信息则返回 True，否则返回 False。
         """
         new_participant = await self._search_new_participant(entry)
         if not new_participant:
             return False
 
+        # 合并参与者信息
         await self._merge_participant(entry, new_participant)
         return True
 
     async def _search_main_entry(self) -> List:
         """
-        Asynchronously searches for the SPO object that is related to `__name__:__main__`.
+        异步搜索与 `__name__:__main__` 相关的 SPO 对象。
 
-        Returns:
-            List: A list containing information about the main entry in the sequence diagram.
+        返回:
+            List: 包含主入口序列图相关信息的列表。
         """
         rows = await self.graph_db.select(predicate=GraphKeyword.HAS_PAGE_INFO)
         tag = "__name__:__main__"
@@ -226,10 +259,10 @@ class RebuildSequenceView(Action):
     )
     async def _rebuild_use_case(self, ns_class_name: str):
         """
-        Asynchronously reconstructs the use case for the provided namespace-prefixed class name.
+        异步重建与指定命名空间类名相关的用例。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which the use case is to be reconstructed.
+        参数:
+            ns_class_name (str): 命名空间类名，用于重建用例。
         """
         rows = await self.graph_db.select(subject=ns_class_name, predicate=GraphKeyword.HAS_CLASS_USE_CASE)
         if rows:
@@ -262,21 +295,14 @@ class RebuildSequenceView(Action):
         rsp = await self.llm.aask(
             msg=prompt,
             system_msgs=[
-                "You are a python code to UML 2.0 Use Case translator.",
-                'The generated UML 2.0 Use Case must include the roles or entities listed in "Participants".',
-                "The functional descriptions of Actors and Use Cases in the generated UML 2.0 Use Case must not "
-                'conflict with the information in "Mermaid Class Views".',
-                'The section under `if __name__ == "__main__":` of "Source Code" contains information about external '
-                "system interactions with the internal system.",
-                "Return a markdown JSON object with:\n"
-                '- a "description" key to explain what the whole source code want to do;\n'
-                '- a "use_cases" key list all use cases, each use case in the list should including a `description` '
-                "key describes about what the use case to do, a `inputs` key lists the input names of the use case "
-                "from external sources, a `outputs` key lists the output names of the use case to external sources, "
-                "a `actors` key lists the participant actors of the use case, a `steps` key lists the steps about how "
-                "the use case works step by step, a `reason` key explaining under what circumstances would the "
-                "external system execute this use case.\n"
-                '- a "relationship" key lists all the descriptions of relationship among these use cases.\n',
+                "你是一个 Python 代码到 UML 2.0 用例图的转换器。",
+                '生成的 UML 2.0 用例图必须包含在 "Participants" 中列出的角色或实体。',
+                "生成的 UML 2.0 用例图中的演员和用例的功能描述，不能与 'Mermaid 类视图' 中的信息冲突。",
+                '在 `if __name__ == "__main__":` 下的 "源代码" 部分包含有关外部系统与内部系统交互的信息。',
+                "返回一个 markdown 格式的 JSON 对象，包含：\n"
+                '- "description" 键：解释源代码的整体目的；\n'
+                '- "use_cases" 键：列出所有用例，每个用例包含 `description`、`inputs`、`outputs`、`actors`、`steps` 和 `reason`。\n'
+                '- "relationship" 键：列出用例之间的关系描述。\n',
             ],
             stream=False,
         )
@@ -295,32 +321,32 @@ class RebuildSequenceView(Action):
     )
     async def _rebuild_sequence_view(self, ns_class_name: str):
         """
-        Asynchronously reconstructs the sequence diagram for the provided namespace-prefixed class name.
+        异步重建指定命名空间前缀类名的序列图。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which the sequence diagram is to be reconstructed.
+        参数:
+            ns_class_name (str): 需要重建序列图的命名空间前缀类名。
         """
         await self._rebuild_use_case(ns_class_name)
 
         prompts_blocks = []
         use_case_markdown = await self._get_class_use_cases(ns_class_name)
-        if not use_case_markdown:  # external class
+        if not use_case_markdown:  # 外部类
             await self.graph_db.insert(subject=ns_class_name, predicate=GraphKeyword.HAS_SEQUENCE_VIEW, object_="")
             return
-        block = f"## Use Cases\n{use_case_markdown}"
+        block = f"## 用例\n{use_case_markdown}"
         prompts_blocks.append(block)
 
         participants = await self._get_participants(ns_class_name)
-        block = "## Participants\n" + "\n".join([f"- {s}" for s in participants])
+        block = "## 参与者\n" + "\n".join([f"- {s}" for s in participants])
         prompts_blocks.append(block)
 
         view = await self._get_uml_class_view(ns_class_name)
-        block = "## Mermaid Class Views\n```mermaid\n"
+        block = "## Mermaid 类视图\n```mermaid\n"
         block += view.get_mermaid()
         block += "\n```\n"
         prompts_blocks.append(block)
 
-        block = "## Source Code\n```python\n"
+        block = "## 源代码\n```python\n"
         block += await self._get_source_code(ns_class_name)
         block += "\n```\n"
         prompts_blocks.append(block)
@@ -329,10 +355,10 @@ class RebuildSequenceView(Action):
         rsp = await self.llm.aask(
             prompt,
             system_msgs=[
-                "You are a Mermaid Sequence Diagram translator in function detail.",
-                "Translate the markdown text to a Mermaid Sequence Diagram.",
-                "Response must be concise.",
-                "Return a markdown mermaid code block.",
+                "你是一个 Mermaid 序列图翻译器，专注于功能细节。",
+                "将 markdown 文本翻译成 Mermaid 序列图。",
+                "回答必须简洁。",
+                "返回一个 markdown mermaid 代码块。",
             ],
             stream=False,
         )
@@ -344,14 +370,13 @@ class RebuildSequenceView(Action):
 
     async def _get_participants(self, ns_class_name: str) -> List[str]:
         """
-        Asynchronously returns the participants list of the sequence diagram for the provided namespace-prefixed SPO
-        object.
+        异步获取指定命名空间前缀的序列图参与者列表。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which to retrieve the participants list.
+        参数:
+            ns_class_name (str): 需要获取参与者的命名空间前缀类名。
 
-        Returns:
-            List[str]: A list of participants in the sequence diagram.
+        返回:
+            List[str]: 包含序列图参与者的字符串列表。
         """
         participants = set()
         detail = await self._get_class_detail(ns_class_name)
@@ -363,13 +388,13 @@ class RebuildSequenceView(Action):
 
     async def _get_class_use_cases(self, ns_class_name: str) -> str:
         """
-        Asynchronously assembles the context about the use case information of the namespace-prefixed SPO object.
+        异步获取命名空间前缀类的用例信息。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which to retrieve use case information.
+        参数:
+            ns_class_name (str): 需要获取用例信息的命名空间前缀类名。
 
-        Returns:
-            str: A string containing the assembled context about the use case information.
+        返回:
+            str: 包含该类的用例信息的字符串。
         """
         block = ""
         rows = await self.graph_db.select(subject=ns_class_name, predicate=GraphKeyword.HAS_CLASS_USE_CASE)
@@ -378,23 +403,22 @@ class RebuildSequenceView(Action):
             block += f"\n### {i + 1}. {detail.description}"
             for j, use_case in enumerate(detail.use_cases):
                 block += f"\n#### {i + 1}.{j + 1}. {use_case.description}\n"
-                block += "\n##### Inputs\n" + "\n".join([f"- {s}" for s in use_case.inputs])
-                block += "\n##### Outputs\n" + "\n".join([f"- {s}" for s in use_case.outputs])
-                block += "\n##### Actors\n" + "\n".join([f"- {s}" for s in use_case.actors])
-                block += "\n##### Steps\n" + "\n".join([f"- {s}" for s in use_case.steps])
-            block += "\n#### Use Case Relationship\n" + "\n".join([f"- {s}" for s in detail.relationship])
+                block += "\n##### 输入\n" + "\n".join([f"- {s}" for s in use_case.inputs])
+                block += "\n##### 输出\n" + "\n".join([f"- {s}" for s in use_case.outputs])
+                block += "\n##### 参与者\n" + "\n".join([f"- {s}" for s in use_case.actors])
+                block += "\n##### 步骤\n" + "\n".join([f"- {s}" for s in use_case.steps])
+            block += "\n#### 用例关系\n" + "\n".join([f"- {s}" for s in detail.relationship])
         return block + "\n"
 
     async def _get_class_detail(self, ns_class_name: str) -> DotClassInfo | None:
         """
-        Asynchronously retrieves the dot format class details of the namespace-prefixed SPO object.
+        异步获取命名空间前缀类的 dot 格式详细信息。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which to retrieve class details.
+        参数:
+            ns_class_name (str): 需要获取详细信息的命名空间前缀类名。
 
-        Returns:
-            Union[DotClassInfo, None]: A DotClassInfo object representing the dot format class details,
-                                       or None if the details are not available.
+        返回:
+            Union[DotClassInfo, None]: 返回 DotClassInfo 对象表示 dot 格式的类详细信息，若无详细信息则返回 None。
         """
         rows = await self.graph_db.select(subject=ns_class_name, predicate=GraphKeyword.HAS_DETAIL)
         if not rows:
@@ -404,14 +428,13 @@ class RebuildSequenceView(Action):
 
     async def _get_uml_class_view(self, ns_class_name: str) -> UMLClassView | None:
         """
-        Asynchronously retrieves the UML 2.0 format class details of the namespace-prefixed SPO object.
+        异步获取命名空间前缀类的 UML 2.0 格式详细信息。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which to retrieve UML class details.
+        参数:
+            ns_class_name (str): 需要获取 UML 2.0 类视图信息的命名空间前缀类名。
 
-        Returns:
-            Union[UMLClassView, None]: A UMLClassView object representing the UML 2.0 format class details,
-                                       or None if the details are not available.
+        返回:
+            Union[UMLClassView, None]: 返回 UMLClassView 对象表示 UML 2.0 格式的类视图，若无视图则返回 None。
         """
         rows = await self.graph_db.select(subject=ns_class_name, predicate=GraphKeyword.HAS_CLASS_VIEW)
         if not rows:
@@ -421,13 +444,13 @@ class RebuildSequenceView(Action):
 
     async def _get_source_code(self, ns_class_name: str) -> str:
         """
-        Asynchronously retrieves the source code of the namespace-prefixed SPO object.
+        异步获取指定命名空间前缀类的源代码。
 
-        Args:
-            ns_class_name (str): The namespace-prefixed class name for which to retrieve the source code.
+        参数:
+            ns_class_name (str): 需要获取源代码的命名空间前缀类名。
 
-        Returns:
-            str: A string containing the source code of the specified namespace-prefixed class.
+        返回:
+            str: 包含该类源代码的字符串。
         """
         rows = await self.graph_db.select(subject=ns_class_name, predicate=GraphKeyword.HAS_PAGE_INFO)
         filename = split_namespace(ns_class_name=ns_class_name)[0]
@@ -444,18 +467,18 @@ class RebuildSequenceView(Action):
     @staticmethod
     def get_full_filename(root: str | Path, pathname: str | Path) -> Path | None:
         """
-        Convert package name to the full path of the module.
+        将包名称转换为模块的完整路径。
 
-        Args:
-            root (Union[str, Path]): The root path or string representing the package.
-            pathname (Union[str, Path]): The pathname or string representing the module.
+        参数:
+            root (Union[str, Path]): 根路径或字符串表示的包路径。
+            pathname (Union[str, Path]): 模块的路径或字符串表示。
 
-        Returns:
-            Union[Path, None]: The full path of the module, or None if the path cannot be determined.
+        返回:
+            Union[Path, None]: 返回模块的完整路径，若无法确定路径则返回 None。
 
-        Examples:
-            If `root`(workdir) is "/User/xxx/github/MetaGPT/metagpt", and the `pathname` is
-            "metagpt/management/skill_manager.py", then the returned value will be
+        示例:
+            如果 `root`(工作目录) 为 "/User/xxx/github/MetaGPT/metagpt"，而 `pathname` 为
+            "metagpt/management/skill_manager.py"，则返回值为
             "/User/xxx/github/MetaGPT/metagpt/management/skill_manager.py"
         """
         if re.match(r"^/.+", str(pathname)):
@@ -470,13 +493,13 @@ class RebuildSequenceView(Action):
     @staticmethod
     def parse_participant(mermaid_sequence_diagram: str) -> List[str]:
         """
-        Parses the provided Mermaid sequence diagram and returns the list of participants.
+        解析提供的 Mermaid 序列图，返回参与者列表。
 
-        Args:
-            mermaid_sequence_diagram (str): The Mermaid sequence diagram string to be parsed.
+        参数:
+            mermaid_sequence_diagram (str): 要解析的 Mermaid 序列图字符串。
 
-        Returns:
-            List[str]: A list of participants extracted from the sequence diagram.
+        返回:
+            List[str]: 从序列图中提取的参与者列表。
         """
         pattern = r"participant ([\w\.]+)"
         matches = re.findall(pattern, mermaid_sequence_diagram)
@@ -485,13 +508,13 @@ class RebuildSequenceView(Action):
 
     async def _search_new_participant(self, entry: SPO) -> str | None:
         """
-        Asynchronously retrieves a participant whose sequence diagram has not been augmented.
+        异步查找一个尚未增强序列图的参与者。
 
-        Args:
-            entry (SPO): The SPO object representing the relationship in the graph database.
+        参数:
+            entry (SPO): 表示图数据库中关系的 SPO 对象。
 
-        Returns:
-            Union[str, None]: A participant whose sequence diagram has not been augmented, or None if not found.
+        返回:
+            Union[str, None]: 找到的未增强序列图的参与者，若未找到则返回 None。
         """
         rows = await self.graph_db.select(subject=entry.subject, predicate=GraphKeyword.HAS_SEQUENCE_VIEW)
         if not rows:
@@ -509,58 +532,59 @@ class RebuildSequenceView(Action):
             return p
         return None
 
+
     @retry(
-        wait=wait_random_exponential(min=1, max=20),
-        stop=stop_after_attempt(6),
-        after=general_after_log(logger),
+        wait=wait_random_exponential(min=1, max=20),  # 设置重试时的等待时间为随机指数分布，最小1秒，最大20秒
+        stop=stop_after_attempt(6),  # 设置最多重试6次
+        after=general_after_log(logger),  # 在每次重试后记录日志
     )
     async def _merge_participant(self, entry: SPO, class_name: str):
         """
-        Augments the sequence diagram of `class_name` to the sequence diagram of `entry`.
+        将`class_name`的序列图增强到`entry`的序列图中。
 
-        Args:
-            entry (SPO): The SPO object representing the base sequence diagram.
-            class_name (str): The class name whose sequence diagram is to be augmented.
+        参数:
+            entry (SPO): 代表基础序列图的SPO对象。
+            class_name (str): 要增强的类名对应的序列图。
         """
         rows = await self.graph_db.select(predicate=GraphKeyword.IS, object_=GraphKeyword.CLASS)
         participants = []
         for r in rows:
             name = split_namespace(r.subject)[-1]
-            if name == class_name:
+            if name == class_name:  # 如果类名匹配
                 participants.append(r)
-        if len(participants) == 0:  # external participants
+        if len(participants) == 0:  # 如果没有找到匹配的参与者，表示是外部参与者
             await self.graph_db.insert(
                 subject=entry.subject, predicate=GraphKeyword.HAS_PARTICIPANT, object_=concat_namespace("?", class_name)
             )
             return
-        if len(participants) > 1:
+        if len(participants) > 1:  # 如果有多个匹配的参与者
             for r in participants:
                 await self.graph_db.insert(
                     subject=entry.subject, predicate=GraphKeyword.HAS_PARTICIPANT, object_=auto_namespace(r.subject)
                 )
             return
 
-        participant = participants[0]
+        participant = participants[0]  # 获取第一个参与者
         await self._rebuild_sequence_view(participant.subject)
         sequence_views = await self.graph_db.select(
             subject=participant.subject, predicate=GraphKeyword.HAS_SEQUENCE_VIEW
         )
-        if not sequence_views:  # external class
+        if not sequence_views:  # 如果没有找到序列视图，表示该类是外部类
             return
         rows = await self.graph_db.select(subject=entry.subject, predicate=GraphKeyword.HAS_SEQUENCE_VIEW)
         prompt = f"```mermaid\n{sequence_views[0].object_}\n```\n---\n```mermaid\n{rows[0].object_}\n```"
 
         rsp = await self.llm.aask(
             prompt,
-            system_msgs=[
-                "You are a tool to merge sequence diagrams into one.",
-                "Participants with the same name are considered identical.",
-                "Return the merged Mermaid sequence diagram in a markdown code block format.",
+            system_msgs=[  # 提供给LLM的系统消息，指导其处理
+                "你是一个将序列图合并为一个的工具。",
+                "同名的参与者被认为是相同的。",
+                "返回合并后的Mermaid序列图，格式为Markdown代码块。",
             ],
             stream=False,
         )
 
-        sequence_view = rsp.removeprefix("```mermaid").removesuffix("```")
+        sequence_view = rsp.removeprefix("```mermaid").removesuffix("```")  # 去除Mermaid代码块标记
         rows = await self.graph_db.select(subject=entry.subject, predicate=GraphKeyword.HAS_SEQUENCE_VIEW)
         for r in rows:
             await self.graph_db.delete(subject=r.subject, predicate=r.predicate, object_=r.object_)
@@ -575,24 +599,24 @@ class RebuildSequenceView(Action):
         await self.graph_db.insert(
             subject=entry.subject, predicate=GraphKeyword.HAS_PARTICIPANT, object_=auto_namespace(participant.subject)
         )
-        await self._save_sequence_view(subject=entry.subject, content=sequence_view)
+        await self._save_sequence_view(subject=entry.subject, content=sequence_view)  # 保存合并后的序列图
 
     async def _save_sequence_view(self, subject: str, content: str):
-        pattern = re.compile(r"[^a-zA-Z0-9]")
-        name = re.sub(pattern, "_", subject)
-        filename = Path(name).with_suffix(".sequence_diagram.mmd")
-        await self.context.repo.resources.data_api_design.save(filename=str(filename), content=content)
+        pattern = re.compile(r"[^a-zA-Z0-9]")  # 匹配非字母数字字符
+        name = re.sub(pattern, "_", subject)  # 替换为下划线
+        filename = Path(name).with_suffix(".sequence_diagram.mmd")  # 生成文件名，后缀为.mmd
+        await self.context.repo.resources.data_api_design.save(filename=str(filename), content=content)  # 保存文件
 
     async def _search_participants(self, filename: str) -> Set:
-        content = await self._get_source_code(filename)
+        content = await self._get_source_code(filename)  # 获取源代码
 
         rsp = await self.llm.aask(
             msg=content,
-            system_msgs=[
-                "You are a tool for listing all class names used in a source file.",
-                "Return a markdown JSON object with: "
-                '- a "class_names" key containing the list of class names used in the file; '
-                '- a "reasons" key lists all reason objects, each object containing a "class_name" key for class name, a "reference" key explaining the line where the class has been used.',
+            system_msgs=[  # 提供给LLM的系统消息，指导其处理
+                "你是一个列出源文件中所有类名的工具。",
+                "返回一个Markdown格式的JSON对象，包含："
+                '- 一个"class_names"键，表示文件中使用的所有类名列表；'
+                '- 一个"reasons"键，列出所有原因对象，每个对象包含"class_name"键表示类名，"reference"键解释类在文件中的引用位置。',
             ],
         )
 
@@ -600,6 +624,6 @@ class RebuildSequenceView(Action):
             class_names: List[str]
             reasons: List
 
-        json_blocks = parse_json_code_block(rsp)
-        data = _Data.model_validate_json(json_blocks[0])
-        return set(data.class_names)
+        json_blocks = parse_json_code_block(rsp)  # 解析JSON代码块
+        data = _Data.model_validate_json(json_blocks[0])  # 验证数据并转为模型实例
+        return set(data.class_names)  # 返回类名集合

@@ -9,4 +9,7 @@ from metagpt.actions import Action
 
 
 class UserRequirement(Action):
-    """User Requirement without any implementation details"""
+    """
+    用户需求类，表示一个没有具体实现细节的需求
+    继承自 Action 类，用于定义用户需求的基础结构
+    """

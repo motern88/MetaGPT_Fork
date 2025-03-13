@@ -126,6 +126,7 @@ Follow format example's {prompt_schema} format, generate output and make sure it
 
 
 def dict_to_markdown(d, prefix=MARKDOWN_TITLE_PREFIX, kv_sep="\n", postfix="\n"):
+    """将字典转换为Markdown格式"""
     markdown_str = ""
     for key, value in d.items():
         markdown_str += f"{prefix}{key}{kv_sep}{value}{postfix}"
@@ -133,31 +134,30 @@ def dict_to_markdown(d, prefix=MARKDOWN_TITLE_PREFIX, kv_sep="\n", postfix="\n")
 
 
 class ActionNode:
-    """ActionNode is a tree of nodes."""
+    """ActionNode：表示一个动作节点，是一个树结构的节点。"""
 
-    schema: str  # raw/json/markdown, default: ""
+    schema: str  # 存储原始格式（json/markdown等）
 
-    # Action Context
-    context: str  # all the context, including all necessary info
-    llm: BaseLLM  # LLM with aask interface
-    children: dict[str, "ActionNode"]
+    # 动作上下文
+    context: str  # 所有上下文信息，包含所有必要的信息
+    llm: BaseLLM  # 与 LLM 交互的接口
+    children: dict[str, "ActionNode"]  # 孩子节点的字典
 
-    # Action Input
-    key: str  # Product Requirement / File list / Code
-    func: typing.Callable  # 与节点相关联的函数或LLM调用
-    params: Dict[str, Type]  # 输入参数的字典，键为参数名，值为参数类型
-    expected_type: Type  # such as str / int / float etc.
-    # context: str  # everything in the history.
-    instruction: str  # the instructions should be followed.
-    example: Any  # example for In Context-Learning.
+    # 动作输入
+    key: str  # 产品需求 / 文件列表 / 代码等
+    func: typing.Callable  # 与节点相关联的函数或 LLM 调用
+    params: Dict[str, Type]  # 输入参数字典，键为参数名，值为参数类型
+    expected_type: Type  # 预期的类型，例如 str / int / float 等
+    instruction: str  # 需要遵循的指令
+    example: Any  # 供上下文学习的示例
 
-    # Action Output
-    content: str
-    instruct_content: BaseModel
+    # 动作输出
+    content: str  # 动作的内容输出
+    instruct_content: BaseModel  # 指令内容
 
-    # For ActionGraph
-    prevs: List["ActionNode"]  # previous nodes
-    nexts: List["ActionNode"]  # next nodes
+    # ActionGraph 的相关字段
+    prevs: List["ActionNode"]  # 前置节点
+    nexts: List["ActionNode"]  # 后置节点
 
     def __init__(
         self,
@@ -169,6 +169,7 @@ class ActionNode:
         children: dict[str, "ActionNode"] = None,
         schema: str = "",
     ):
+        """初始化一个动作节点"""
         self.key = key
         self.expected_type = expected_type
         self.instruction = instruction
@@ -180,43 +181,46 @@ class ActionNode:
         self.nexts = []
 
     def __str__(self):
+        """返回节点的字符串表示"""
         return (
-            f"{self.key}, {repr(self.expected_type)}, {self.instruction}, {self.example}"
+            f"{self.key}, {repr(self.expected_type)}, {self.instruction}, {self.example} "
             f", {self.content}, {self.children}"
         )
 
     def __repr__(self):
+        """返回节点的字符串表示"""
         return self.__str__()
 
     def add_prev(self, node: "ActionNode"):
-        """增加前置ActionNode"""
+        """增加前置节点"""
         self.prevs.append(node)
 
     def add_next(self, node: "ActionNode"):
-        """增加后置ActionNode"""
+        """增加后置节点"""
         self.nexts.append(node)
 
     def add_child(self, node: "ActionNode"):
-        """增加子ActionNode"""
+        """增加子节点"""
         self.children[node.key] = node
 
     def get_child(self, key: str) -> Union["ActionNode", None]:
+        """根据键获取子节点"""
         return self.children.get(key, None)
 
     def add_children(self, nodes: List["ActionNode"]):
-        """批量增加子ActionNode"""
+        """批量增加子节点"""
         for node in nodes:
             self.add_child(node)
 
     @classmethod
     def from_children(cls, key, nodes: List["ActionNode"]):
-        """直接从一系列的子nodes初始化"""
+        """直接从一系列子节点初始化"""
         obj = cls(key, str, "", "")
         obj.add_children(nodes)
         return obj
 
     def _get_children_mapping(self, exclude=None) -> Dict[str, Any]:
-        """获得子ActionNode的字典，以key索引，支持多级结构。"""
+        """获取子节点的映射字典，支持多级结构"""
         exclude = exclude or []
 
         def _get_mapping(node: "ActionNode") -> Dict[str, Any]:
@@ -224,7 +228,7 @@ class ActionNode:
             for key, child in node.children.items():
                 if key in exclude:
                     continue
-                # 对于嵌套的子节点，递归调用 _get_mapping
+                # 对于嵌套的子节点，递归获取映射
                 if child.children:
                     mapping[key] = _get_mapping(child)
                 else:
@@ -234,11 +238,11 @@ class ActionNode:
         return _get_mapping(self)
 
     def _get_self_mapping(self) -> Dict[str, Tuple[Type, Any]]:
-        """get self key: type mapping"""
+        """获取自身节点的映射"""
         return {self.key: (self.expected_type, ...)}
 
     def get_mapping(self, mode="children", exclude=None) -> Dict[str, Tuple[Type, Any]]:
-        """get key: type mapping under mode"""
+        """根据模式获取映射字典"""
         if mode == "children" or (mode == "auto" and self.children):
             return self._get_children_mapping(exclude=exclude)
         return {} if exclude and self.key in exclude else self._get_self_mapping()
@@ -246,9 +250,10 @@ class ActionNode:
     @classmethod
     @register_action_outcls
     def create_model_class(cls, class_name: str, mapping: Dict[str, Tuple[Type, Any]]):
-        """基于pydantic v2的模型动态生成，用来检验结果类型正确性"""
+        """基于 pydantic v2 的模型动态生成，用来检验结果类型的正确性"""
 
         def check_fields(cls, values):
+            """检查字段是否完整和正确"""
             all_fields = set(mapping.keys())
             required_fields = set()
             for k, v in mapping.items():
@@ -282,14 +287,15 @@ class ActionNode:
         return new_class
 
     def create_class(self, mode: str = "auto", class_name: str = None, exclude=None):
+        """根据节点生成对应的模型类"""
         class_name = class_name if class_name else f"{self.key}_AN"
         mapping = self.get_mapping(mode=mode, exclude=exclude)
         return self.create_model_class(class_name, mapping)
 
     def _create_children_class(self, exclude=None):
-        """使用object内有的字段直接生成model_class"""
+        """批量生成子节点对应的模型类"""
         class_name = f"{self.key}_AN"
-        mapping = self._get_children_mapping(exclude=exclude)
+        mapping = self.get_mapping(mode="children", exclude=exclude)
         return self.create_model_class(class_name, mapping)
 
     def to_dict(self, format_func=None, mode="auto", exclude=None) -> Dict:
@@ -330,6 +336,14 @@ class ActionNode:
         return node_value
 
     def update_instruct_content(self, incre_data: dict[str, Any]):
+        """
+        更新指令内容，将增量数据合并到原始指令内容中。
+
+        参数:
+            incre_data (dict[str, Any]): 要合并到原始指令内容的增量数据。
+
+        更新后的指令内容将被重新创建并赋值给 self.instruct_content。
+        """
         assert self.instruct_content
         origin_sc_dict = self.instruct_content.model_dump()
         origin_sc_dict.update(incre_data)
@@ -337,6 +351,15 @@ class ActionNode:
         self.instruct_content = output_class(**origin_sc_dict)
 
     def keys(self, mode: str = "auto") -> list:
+        """
+        获取当前节点的键，根据模式返回不同的键列表。
+
+        参数:
+            mode (str): 模式，默认为 "auto"。可选值有 "children", "root"。
+
+        返回:
+            list: 当前节点的键列表。
+        """
         if mode == "children" or (mode == "auto" and self.children):
             keys = []
         else:
@@ -349,6 +372,17 @@ class ActionNode:
         return keys
 
     def compile_to(self, i: Dict, schema, kv_sep) -> str:
+        """
+        将字典编译为不同格式的字符串（JSON，Markdown等）。
+
+        参数:
+            i (Dict): 要编译的字典。
+            schema (str): 编译格式，支持 "json" 或 "markdown"。
+            kv_sep (str): 键值分隔符。
+
+        返回:
+            str: 编译后的字符串。
+        """
         if schema == "json":
             return json.dumps(i, indent=4, ensure_ascii=False)
         elif schema == "markdown":
@@ -357,58 +391,91 @@ class ActionNode:
             return str(i)
 
     def tagging(self, text, schema, tag="") -> str:
+        """
+        给文本添加标签。
+
+        参数:
+            text (str): 要添加标签的文本。
+            schema (str): 使用的模式。
+            tag (str): 要添加的标签，默认为空。
+
+        返回:
+            str: 添加标签后的文本。
+        """
         if not tag:
             return text
         return f"[{tag}]\n{text}\n[/{tag}]"
 
     def _compile_f(self, schema, mode, tag, format_func, kv_sep, exclude=None) -> str:
+        """
+        编译格式化内容，并为其添加标签。
+
+        参数:
+            schema (str): 编译格式，支持 "json", "markdown"。
+            mode (str): 模式，决定哪些节点会被编译。
+            tag (str): 标签。
+            format_func (callable): 格式化函数。
+            kv_sep (str): 键值分隔符。
+            exclude (list): 要排除的字段列表。
+
+        返回:
+            str: 编译后的文本。
+        """
         nodes = self.to_dict(format_func=format_func, mode=mode, exclude=exclude)
         text = self.compile_to(nodes, schema, kv_sep)
         return self.tagging(text, schema, tag)
 
     def compile_instruction(self, schema="markdown", mode="children", tag="", exclude=None) -> str:
-        """compile to raw/json/markdown template with all/root/children nodes"""
+        """
+        编译指令部分，支持不同格式（JSON，Markdown等）。
+
+        参数:
+            schema (str): 编译格式，支持 "json" 或 "markdown"。
+            mode (str): 模式，决定编译哪些节点。
+            tag (str): 标签。
+            exclude (list): 要排除的字段列表。
+
+        返回:
+            str: 编译后的指令部分。
+        """
         format_func = lambda i: f"{i.expected_type}  # {i.instruction}"
         return self._compile_f(schema, mode, tag, format_func, kv_sep=": ", exclude=exclude)
 
     def compile_example(self, schema="json", mode="children", tag="", exclude=None) -> str:
-        """compile to raw/json/markdown examples with all/root/children nodes"""
+        """
+        编译示例部分，支持不同格式（JSON，Markdown等）。
 
-        # 这里不能使用f-string，因为转译为str后再json.dumps会额外加上引号，无法作为有效的example
-        # 错误示例："File list": "['main.py', 'const.py', 'game.py']", 注意这里值不是list，而是str
+        参数:
+            schema (str): 编译格式，支持 "json" 或 "markdown"。
+            mode (str): 模式，决定编译哪些节点。
+            tag (str): 标签。
+            exclude (list): 要排除的字段列表。
+
+        返回:
+            str: 编译后的示例部分。
+        """
         format_func = lambda i: i.example
         return self._compile_f(schema, mode, tag, format_func, kv_sep="\n", exclude=exclude)
 
     def compile(self, context, schema="json", mode="children", template=SIMPLE_TEMPLATE, exclude=[]) -> str:
         """
-        mode: all/root/children
-            mode="children": 编译所有子节点为一个统一模板，包括instruction与example
-            mode="all": NotImplemented
-            mode="root": NotImplemented
-        schmea: raw/json/markdown
-            schema="raw": 不编译，context, lang_constaint, instruction
-            schema="json"：编译context, example(json), instruction(markdown), constraint, action
-            schema="markdown": 编译context, example(markdown), instruction(markdown), constraint, action
+        编译整个内容，根据模式和格式返回不同的编译结果。
+
+        参数:
+            context (str): 上下文信息。
+            schema (str): 编译格式，支持 "raw", "json", "markdown"。
+            mode (str): 模式，决定编译哪些节点（"all", "root", "children"）。
+            template (str): 用于格式化的模板。
+            exclude (list): 要排除的字段列表。
+
+        返回:
+            str: 编译后的完整内容。
         """
         if schema == "raw":
             return f"{context}\n\n## Actions\n{LANGUAGE_CONSTRAINT}\n{self.instruction}"
 
-        ### 直接使用 pydantic BaseModel 生成 instruction 与 example，仅限 JSON
-        # child_class = self._create_children_class()
-        # node_schema = child_class.model_json_schema()
-        # defaults = {
-        #     k: str(v)
-        #     for k, v in child_class.model_fields.items()
-        #     if k not in exclude
-        # }
-        # instruction = node_schema
-        # example = json.dumps(defaults, indent=4)
-
-        # FIXME: json instruction会带来格式问题，如："Project name": "web_2048  # 项目名称使用下划线",
-        # compile example暂时不支持markdown
         instruction = self.compile_instruction(schema="markdown", mode=mode, exclude=exclude)
         example = self.compile_example(schema=schema, tag=TAG, mode=mode, exclude=exclude)
-        # nodes = ", ".join(self.to_dict(mode=mode).keys())
         constraints = [LANGUAGE_CONSTRAINT, FORMAT_CONSTRAINT]
         constraint = "\n".join(constraints)
 
@@ -432,10 +499,24 @@ class ActionNode:
         output_data_mapping: dict,
         images: Optional[Union[str, list[str]]] = None,
         system_msgs: Optional[list[str]] = None,
-        schema="markdown",  # compatible to original format
+        schema="markdown",  # 兼容原始格式
         timeout=USE_CONFIG_TIMEOUT,
     ) -> (str, BaseModel):
-        """Use ActionOutput to wrap the output of aask"""
+        """
+        使用 ActionOutput 包装 _aask 的输出。
+
+        参数:
+            prompt (str): 提示信息。
+            output_class_name (str): 输出类的名称。
+            output_data_mapping (dict): 输出数据的映射。
+            images (Optional[Union[str, list[str]]]): 可选的图像数据。
+            system_msgs (Optional[list[str]]): 系统消息。
+            schema (str): 格式（支持 "json" 或 "markdown"）。
+            timeout (int): 超时时间。
+
+        返回:
+            (str, BaseModel): 返回原始内容和解析后的指令内容。
+        """
         content = await self.llm.aask(prompt, system_msgs, images=images, timeout=timeout)
         logger.debug(f"llm raw output:\n{content}")
         output_class = self.create_model_class(output_class_name, output_data_mapping)
@@ -444,7 +525,7 @@ class ActionNode:
             parsed_data = llm_output_postprocess(
                 output=content, schema=output_class.model_json_schema(), req_key=f"[/{TAG}]"
             )
-        else:  # using markdown parser
+        else:  # 使用 markdown 解析器
             parsed_data = OutputParser.parse_data_with_mapping(content, output_data_mapping)
 
         logger.debug(f"parsed_data:\n{parsed_data}")
@@ -452,22 +533,63 @@ class ActionNode:
         return content, instruct_content
 
     def get(self, key):
+        """
+        获取指定字段的值。
+
+        参数:
+            key (str): 要获取的字段名。
+
+        返回:
+            Any: 字段的值。
+        """
         return self.instruct_content.model_dump()[key]
 
     def set_recursive(self, name, value):
+        """
+        递归设置指定字段的值。
+
+        参数:
+            name (str): 字段名。
+            value (Any): 要设置的值。
+        """
         setattr(self, name, value)
         for _, i in self.children.items():
             i.set_recursive(name, value)
 
     def set_llm(self, llm):
+        """
+        设置 LLM（大语言模型）实例。
+
+        参数:
+            llm: LLM 实例。
+        """
         self.set_recursive("llm", llm)
 
     def set_context(self, context):
+        """
+        设置上下文。
+
+        参数:
+            context: 上下文信息。
+        """
         self.set_recursive("context", context)
 
     async def simple_fill(
         self, schema, mode, images: Optional[Union[str, list[str]]] = None, timeout=USE_CONFIG_TIMEOUT, exclude=None
     ):
+        """
+        简单填充，使用 LLM 填充内容。
+
+        参数:
+            schema (str): 格式，支持 "json", "markdown"。
+            mode (str): 模式，决定填充哪些字段。
+            images (Optional[Union[str, list[str]]]): 可选的图像数据。
+            timeout (int): 超时时间。
+            exclude (list): 要排除的字段列表。
+
+        返回:
+            self: 填充后的当前对象。
+        """
         prompt = self.compile(context=self.context, schema=schema, mode=mode, exclude=exclude)
         if schema != "raw":
             mapping = self.get_mapping(mode, exclude=exclude)
@@ -485,56 +607,56 @@ class ActionNode:
 
     def get_field_name(self):
         """
-        Get the field name from the Pydantic model associated with this ActionNode.
+        获取与此 ActionNode 关联的 Pydantic 模型的字段名称。
         """
         model_class = self.create_class()
         fields = model_class.model_fields
 
-        # Assuming there's only one field in the model
+        # 假设模型中只有一个字段
         if len(fields) == 1:
             return next(iter(fields))
 
-        # If there are multiple fields, we might want to use self.key to find the right one
+        # 如果有多个字段，可能需要使用 self.key 来找到正确的字段
         return self.key
 
     def get_field_names(self):
         """
-        Get the field names associated with this ActionNode's Pydantic model.
+        获取与此 ActionNode 的 Pydantic 模型关联的所有字段名称。
         """
         model_class = self.create_class()
         return model_class.model_fields.keys()
 
     def get_field_types(self):
         """
-        Get the field types associated with this ActionNode's Pydantic model.
+        获取与此 ActionNode 的 Pydantic 模型关联的字段类型。
         """
         model_class = self.create_class()
         return {field_name: field.annotation for field_name, field in model_class.model_fields.items()}
 
     def xml_compile(self, context):
         """
-        Compile the prompt to make it easier for the model to understand the xml format.
+        编译提示词，将其转换为更易于模型理解的 XML 格式。
         """
         field_names = self.get_field_names()
-        # Construct the example using the field names
+        # 使用字段名称构建示例
         examples = []
         for field_name in field_names:
             examples.append(f"<{field_name}>content</{field_name}>")
 
-        # Join all examples into a single string
+        # 将所有示例连接成一个字符串
         example_str = "\n".join(examples)
-        # Add the example to the context
+        # 将示例添加到上下文中
         context += f"""
-### Response format (must be strictly followed): All content must be enclosed in the given XML tags, ensuring each opening <tag> has a corresponding closing </tag>, with no incomplete or self-closing tags allowed.\n
+### 响应格式（必须严格遵循）：所有内容必须包含在给定的 XML 标签中，确保每个开始标签 <tag> 都有对应的结束标签 </tag>，没有不完整或自闭合的标签。\n
 {example_str}
 """
         return context
 
     async def code_fill(
-        self, context: str, function_name: Optional[str] = None, timeout: int = USE_CONFIG_TIMEOUT
+            self, context: str, function_name: Optional[str] = None, timeout: int = USE_CONFIG_TIMEOUT
     ) -> Dict[str, str]:
         """
-        Fill CodeBlock Using ``` ```
+        使用 ``` ``` 填充代码块
         """
         field_name = self.get_field_name()
         prompt = context
@@ -552,7 +674,7 @@ class ActionNode:
 
     async def xml_fill(self, context: str, images: Optional[Union[str, list[str]]] = None) -> Dict[str, Any]:
         """
-        Fill context with XML tags and convert according to field types, including string, integer, boolean, list and dict types
+        使用 XML 标签填充上下文，并根据字段类型进行转换，包括字符串、整数、布尔值、列表和字典类型
         """
         field_names = self.get_field_names()
         field_types = self.get_field_types()
@@ -593,199 +715,179 @@ class ActionNode:
 
         return extracted_data
 
-    @exp_cache(serializer=ActionNodeSerializer())
+    @exp_cache(serializer=ActionNodeSerializer())  # 使用缓存装饰器，序列化使用 ActionNodeSerializer
     async def fill(
-        self,
-        *,
-        req,
-        llm,
-        schema="json",
-        mode="auto",
-        strgy="simple",
-        images: Optional[Union[str, list[str]]] = None,
-        timeout=USE_CONFIG_TIMEOUT,
-        exclude=[],
-        function_name: str = None,
+            self,# 异步方法，填充节点内容
+            *,
+            req,  # 请求参数，包含填充节点所需的所有信息
+            llm,  # 预定义的语言模型（LLM）
+            schema="json",  # 输出格式，默认为json
+            mode="auto",  # 填充模式，默认为auto
+            strgy="simple",  # 填充策略，默认为simple
+            images: Optional[Union[str, list[str]]] = None,  # 图片的URL或base64编码，可选参数
+            timeout=USE_CONFIG_TIMEOUT,  # 请求超时设置
+            exclude=[],  # 排除的ActionNode键
+            function_name: str = None,  # 函数名称
     ):
-        """Fill the node(s) with mode.
+        """ 填充节点内容的函数
 
-        :param req: Everything we should know when filling node.
-        :param llm: Large Language Model with pre-defined system message.
-        :param schema: json/markdown, determine example and output format.
-         - raw: free form text
-         - json: it's easy to open source LLM with json format
-         - markdown: when generating code, markdown is always better
-        :param mode: auto/children/root
-         - auto: automated fill children's nodes and gather outputs, if no children, fill itself
-         - children: fill children's nodes and gather outputs
-         - root: fill root's node and gather output
-        :param strgy: simple/complex
-         - simple: run only once
-         - complex: run each node
-        :param images: the list of image url or base64 for gpt4-v
-        :param timeout: Timeout for llm invocation.
-        :param exclude: The keys of ActionNode to exclude.
-        :return: self
+        :param req: 填充节点所需的请求参数
+        :param llm: 大型语言模型
+        :param schema: 输出格式，可以是json, markdown等
+        :param mode: 填充模式（auto、children、root）
+        :param strgy: 填充策略（simple、complex）
+        :param images: 图片的URL或base64
+        :param timeout: 超时时间
+        :param exclude: 排除的ActionNode键
+        :return: 填充后的节点内容
         """
-        self.set_llm(llm)
-        self.set_context(req)
-        if self.schema:
+        self.set_llm(llm)  # 设置LLM
+        self.set_context(req)  # 设置上下文
+
+        if self.schema:  # 如果类中有指定schema，则使用类中的schema
             schema = self.schema
 
-        if mode == FillMode.CODE_FILL.value:
-            result = await self.code_fill(context, function_name, timeout)
-            self.instruct_content = self.create_class()(**result)
+        # 根据mode的不同选择不同的填充方式
+        if mode == FillMode.CODE_FILL.value:  # 如果是代码填充
+            result = await self.code_fill(context, function_name, timeout)  # 填充代码
+            self.instruct_content = self.create_class()(**result)  # 创建类并设置指令内容
             return self
 
-        elif mode == FillMode.XML_FILL.value:
-            context = self.xml_compile(context=self.context)
-            result = await self.xml_fill(context, images=images)
-            self.instruct_content = self.create_class()(**result)
+        elif mode == FillMode.XML_FILL.value:  # 如果是XML填充
+            context = self.xml_compile(context=self.context)  # 编译XML上下文
+            result = await self.xml_fill(context, images=images)  # 填充XML内容
+            self.instruct_content = self.create_class()(**result)  # 创建类并设置指令内容
             return self
 
-        elif mode == FillMode.SINGLE_FILL.value:
-            result = await self.single_fill(context, images=images)
-            self.instruct_content = self.create_class()(**result)
+        elif mode == FillMode.SINGLE_FILL.value:  # 如果是单次填充
+            result = await self.single_fill(context, images=images)  # 单次填充
+            self.instruct_content = self.create_class()(**result)  # 创建类并设置指令内容
             return self
 
-        if strgy == "simple":
+        if strgy == "simple":  # 如果策略是simple
             return await self.simple_fill(schema=schema, mode=mode, images=images, timeout=timeout, exclude=exclude)
-        elif strgy == "complex":
-            # 这里隐式假设了拥有children
+        elif strgy == "complex":  # 如果策略是complex
             tmp = {}
-            for _, i in self.children.items():
-                if exclude and i.key in exclude:
+            for _, i in self.children.items():  # 遍历所有子节点
+                if exclude and i.key in exclude:  # 如果当前子节点在排除列表中，跳过
                     continue
-                child = await i.simple_fill(schema=schema, mode=mode, images=images, timeout=timeout, exclude=exclude)
-                tmp.update(child.instruct_content.model_dump())
-            cls = self._create_children_class()
-            self.instruct_content = cls(**tmp)
+                child = await i.simple_fill(schema=schema, mode=mode, images=images, timeout=timeout,
+                                            exclude=exclude)  # 对子节点进行填充
+                tmp.update(child.instruct_content.model_dump())  # 将子节点的填充结果更新到临时字典中
+            cls = self._create_children_class()  # 创建子类
+            self.instruct_content = cls(**tmp)  # 创建并设置子类的指令内容
             return self
 
-    async def human_review(self) -> dict[str, str]:
-        review_comments = HumanInteraction().interact_with_instruct_content(
+    # 以下是审查和修改相关的方法
+
+    async def human_review(self) -> dict[str, str]:  # 人工审查
+        review_comments = HumanInteraction().interact_with_instruct_content(  # 与用户交互并获取审查评论
             instruct_content=self.instruct_content, interact_type="review"
         )
-
         return review_comments
 
-    def _makeup_nodes_output_with_req(self) -> dict[str, str]:
-        instruct_content_dict = self.instruct_content.model_dump()
+    def _makeup_nodes_output_with_req(self) -> dict[str, str]:  # 生成带有要求的节点输出
+        instruct_content_dict = self.instruct_content.model_dump()  # 获取当前指令内容的字典
         nodes_output = {}
-        for key, value in instruct_content_dict.items():
-            child = self.get_child(key)
-            nodes_output[key] = {"value": value, "requirement": child.instruction if child else self.instruction}
+        for key, value in instruct_content_dict.items():  # 遍历指令内容
+            child = self.get_child(key)  # 获取子节点
+            nodes_output[key] = {"value": value,
+                                 "requirement": child.instruction if child else self.instruction}  # 如果有子节点，则使用其指令，否则使用当前指令
         return nodes_output
 
-    async def auto_review(self, template: str = REVIEW_TEMPLATE) -> dict[str, str]:
-        """use key's output value and its instruction to review the modification comment"""
-        nodes_output = self._makeup_nodes_output_with_req()
-        """nodes_output format:
-        {
-            "key": {"value": "output value", "requirement": "key instruction"}
-        }
-        """
+    async def auto_review(self, template: str = REVIEW_TEMPLATE) -> dict[str, str]:  # 自动审查
+        nodes_output = self._makeup_nodes_output_with_req()  # 获取带要求的节点输出
         if not nodes_output:
             return dict()
 
         prompt = template.format(
-            nodes_output=json.dumps(nodes_output, ensure_ascii=False),
-            tag=TAG,
-            constraint=FORMAT_CONSTRAINT,
-            prompt_schema="json",
+            nodes_output=json.dumps(nodes_output, ensure_ascii=False),  # 格式化审查模板
+            tag=TAG,  # 标签
+            constraint=FORMAT_CONSTRAINT,  # 格式约束
+            prompt_schema="json",  # 使用JSON格式的模式
         )
 
-        content = await self.llm.aask(prompt)
-        # Extract the dict of mismatch key and its comment. Due to the mismatch keys are unknown, here use the keys
-        # of ActionNode to judge if exist in `content` and then follow the `data_mapping` method to create model class.
-        keys = self.keys()
+        content = await self.llm.aask(prompt)  # 请求LLM生成审查内容
+        keys = self.keys()  # 获取所有节点的键
         include_keys = []
         for key in keys:
-            if f'"{key}":' in content:
+            if f'"{key}":' in content:  # 如果内容中包含该键，则包括它
                 include_keys.append(key)
         if not include_keys:
             return dict()
 
-        exclude_keys = list(set(keys).difference(include_keys))
-        output_class_name = f"{self.key}_AN_REVIEW"
-        output_class = self.create_class(class_name=output_class_name, exclude=exclude_keys)
+        exclude_keys = list(set(keys).difference(include_keys))  # 获取排除的键
+        output_class_name = f"{self.key}_AN_REVIEW"  # 设置输出类名
+        output_class = self.create_class(class_name=output_class_name, exclude=exclude_keys)  # 创建输出类
         parsed_data = llm_output_postprocess(
             output=content, schema=output_class.model_json_schema(), req_key=f"[/{TAG}]"
-        )
-        instruct_content = output_class(**parsed_data)
-        return instruct_content.model_dump()
+        )  # 后处理LLM输出
+        instruct_content = output_class(**parsed_data)  # 创建指令内容
+        return instruct_content.model_dump()  # 返回审查结果
 
-    async def simple_review(self, review_mode: ReviewMode = ReviewMode.AUTO):
-        # generate review comments
-        if review_mode == ReviewMode.HUMAN:
-            review_comments = await self.human_review()
+    async def simple_review(self, review_mode: ReviewMode = ReviewMode.AUTO):  # 简单审查
+        if review_mode == ReviewMode.HUMAN:  # 如果是人工审查
+            review_comments = await self.human_review()  # 获取人工审查评论
         else:
-            review_comments = await self.auto_review()
+            review_comments = await self.auto_review()  # 获取自动审查评论
 
         if not review_comments:
-            logger.warning("There are no review comments")
+            logger.warning("There are no review comments")  # 如果没有评论，则发出警告
         return review_comments
 
-    async def review(self, strgy: str = "simple", review_mode: ReviewMode = ReviewMode.AUTO):
-        """only give the review comment of each exist and mismatch key
-
-        :param strgy: simple/complex
-         - simple: run only once
-         - complex: run each node
-        """
+    async def review(self, strgy: str = "simple", review_mode: ReviewMode = ReviewMode.AUTO) -> dict[str, str]:  # 审查方法
         if not hasattr(self, "llm"):
-            raise RuntimeError("use `review` after `fill`")
-        assert review_mode in ReviewMode
-        assert self.instruct_content, 'review only support with `schema != "raw"`'
+            raise RuntimeError("use `review` after `fill`")  # 如果未调用fill方法，抛出错误
+        assert review_mode in ReviewMode  # 确保审查模式有效
+        assert self.instruct_content, 'review only support with `schema != "raw"`'  # 确保有指令内容
 
-        if strgy == "simple":
-            review_comments = await self.simple_review(review_mode)
-        elif strgy == "complex":
-            # review each child node one-by-one
+        if strgy == "simple":  # 如果策略是simple
+            review_comments = await self.simple_review(review_mode)  # 获取简单审查评论
+        elif strgy == "complex":  # 如果策略是complex
             review_comments = {}
-            for _, child in self.children.items():
+            for _, child in self.children.items():  # 对每个子节点进行审查
                 child_review_comment = await child.simple_review(review_mode)
                 review_comments.update(child_review_comment)
 
         return review_comments
 
-    async def human_revise(self) -> dict[str, str]:
-        review_contents = HumanInteraction().interact_with_instruct_content(
+    # 以下是修订相关的方法
+
+    async def human_revise(self) -> dict[str, str]:  # 人工修订
+        review_contents = HumanInteraction().interact_with_instruct_content(  # 与用户交互并获取修订内容
             instruct_content=self.instruct_content, mapping=self.get_mapping(mode="auto"), interact_type="revise"
         )
-        # re-fill the ActionNode
+        # 重新填充ActionNode
         self.update_instruct_content(review_contents)
         return review_contents
 
-    def _makeup_nodes_output_with_comment(self, review_comments: dict[str, str]) -> dict[str, str]:
-        instruct_content_dict = self.instruct_content.model_dump()
+    def _makeup_nodes_output_with_comment(self, review_comments: dict[str, str]) -> dict[str, str]:  # 生成带评论的节点输出
+        instruct_content_dict = self.instruct_content.model_dump()  # 获取当前指令内容
         nodes_output = {}
         for key, value in instruct_content_dict.items():
-            if key in review_comments:
+            if key in review_comments:  # 如果有修订评论，添加到节点输出
                 nodes_output[key] = {"value": value, "comment": review_comments[key]}
         return nodes_output
 
     async def auto_revise(
-        self, revise_mode: ReviseMode = ReviseMode.AUTO, template: str = REVISE_TEMPLATE
-    ) -> dict[str, str]:
-        """revise the value of incorrect keys"""
-        # generate review comments
+            self, revise_mode: ReviseMode = ReviseMode.AUTO, template: str = REVISE_TEMPLATE
+    ) -> dict[str, str]:  # 自动修订
+        # 生成修订评论
         if revise_mode == ReviseMode.AUTO:
-            review_comments: dict = await self.auto_review()
+            review_comments: dict = await self.auto_review()  # 自动审查评论
         elif revise_mode == ReviseMode.HUMAN_REVIEW:
-            review_comments: dict = await self.human_review()
+            review_comments: dict = await self.human_review()  # 人工审查评论
 
-        include_keys = list(review_comments.keys())
+        include_keys = list(review_comments.keys())  # 获取需要修订的键
 
-        # generate revise content, two-steps
-        # step1, find the needed revise keys from review comments to makeup prompt template
-        nodes_output = self._makeup_nodes_output_with_comment(review_comments)
-        keys = self.keys()
-        exclude_keys = list(set(keys).difference(include_keys))
-        example = self.compile_example(schema="json", mode="auto", tag=TAG, exclude=exclude_keys)
-        instruction = self.compile_instruction(schema="markdown", mode="auto", exclude=exclude_keys)
+        # 生成修订内容
+        nodes_output = self._makeup_nodes_output_with_comment(review_comments)  # 生成带评论的节点输出
+        keys = self.keys()  # 获取所有节点的键
+        exclude_keys = list(set(keys).difference(include_keys))  # 获取排除的键
+        example = self.compile_example(schema="json", mode="auto", tag=TAG, exclude=exclude_keys)  # 编译示例
+        instruction = self.compile_instruction(schema="markdown", mode="auto", exclude=exclude_keys)  # 编译指令
 
-        prompt = template.format(
+        prompt = template.format(  # 格式化修订模板
             nodes_output=json.dumps(nodes_output, ensure_ascii=False),
             example=example,
             instruction=instruction,
@@ -793,84 +895,77 @@ class ActionNode:
             prompt_schema="json",
         )
 
-        # step2, use `_aask_v1` to get revise structure result
+        # 步骤2，使用_aask_v1获取修订结果
         output_mapping = self.get_mapping(mode="auto", exclude=exclude_keys)
-        output_class_name = f"{self.key}_AN_REVISE"
+        output_class_name = f"{self.key}_AN_REVISE"  # 设置修订类名
         content, scontent = await self._aask_v1(
             prompt=prompt, output_class_name=output_class_name, output_data_mapping=output_mapping, schema="json"
         )
 
-        # re-fill the ActionNode
+        # 重新填充ActionNode
         sc_dict = scontent.model_dump()
         self.update_instruct_content(sc_dict)
         return sc_dict
 
-    async def simple_revise(self, revise_mode: ReviseMode = ReviseMode.AUTO) -> dict[str, str]:
-        if revise_mode == ReviseMode.HUMAN:
-            revise_contents = await self.human_revise()
+    async def simple_revise(self, revise_mode: ReviseMode = ReviseMode.AUTO) -> dict[str, str]:  # 简单修订
+        if revise_mode == ReviseMode.HUMAN:  # 如果是人工修订
+            revise_contents = await self.human_revise()  # 获取人工修订内容
         else:
-            revise_contents = await self.auto_revise(revise_mode)
-
+            revise_contents = await self.auto_revise()  # 获取自动修订内容
         return revise_contents
 
-    async def revise(self, strgy: str = "simple", revise_mode: ReviseMode = ReviseMode.AUTO) -> dict[str, str]:
-        """revise the content of ActionNode and update the instruct_content
-
-        :param strgy: simple/complex
-         - simple: run only once
-         - complex: run each node
-        """
+    async def revise(self, strgy: str = "simple", revise_mode: ReviseMode = ReviseMode.AUTO) -> dict[str, str]:  # 修订方法
         if not hasattr(self, "llm"):
-            raise RuntimeError("use `revise` after `fill`")
-        assert revise_mode in ReviseMode
-        assert self.instruct_content, 'revise only support with `schema != "raw"`'
+            raise RuntimeError("use `revise` after `fill`")  # 如果未调用fill方法，抛出错误
+        assert revise_mode in ReviseMode  # 确保修订模式有效
+        assert self.instruct_content, 'revise only support with `schema != "raw"`'  # 确保有指令内容
 
-        if strgy == "simple":
-            revise_contents = await self.simple_revise(revise_mode)
-        elif strgy == "complex":
-            # revise each child node one-by-one
+        if strgy == "simple":  # 如果策略是simple
+            revise_contents = await self.simple_revise(revise_mode)  # 获取简单修订内容
+        elif strgy == "complex":  # 如果策略是complex
             revise_contents = {}
-            for _, child in self.children.items():
+            for _, child in self.children.items():  # 对每个子节点进行修订
                 child_revise_content = await child.simple_revise(revise_mode)
                 revise_contents.update(child_revise_content)
-            self.update_instruct_content(revise_contents)
 
         return revise_contents
 
     @classmethod
     def from_pydantic(cls, model: Type[BaseModel], key: str = None):
         """
-        Creates an ActionNode tree from a Pydantic model.
+        从 Pydantic 模型创建一个 ActionNode 树。
 
-        Args:
-            model (Type[BaseModel]): The Pydantic model to convert.
+        参数：
+            model (Type[BaseModel]): 要转换的 Pydantic 模型。
 
-        Returns:
-            ActionNode: The root node of the created ActionNode tree.
+        返回：
+            ActionNode: 创建的 ActionNode 树的根节点。
         """
-        key = key or model.__name__
+        key = key or model.__name__  # 如果没有提供 key，则使用模型的类名作为 key
         root_node = cls(key=key, expected_type=Type[model], instruction="", example="")
 
+        # 遍历模型的字段，处理每个字段
         for field_name, field_info in model.model_fields.items():
-            field_type = field_info.annotation
-            description = field_info.description
-            default = field_info.default
+            field_type = field_info.annotation  # 字段类型
+            description = field_info.description  # 字段描述
+            default = field_info.default  # 字段默认值
 
-            # Recursively handle nested models if needed
+            # 如果字段类型是嵌套的 Pydantic 模型，则递归处理
             if not isinstance(field_type, typing._GenericAlias) and issubclass(field_type, BaseModel):
-                child_node = cls.from_pydantic(field_type, key=field_name)
+                child_node = cls.from_pydantic(field_type, key=field_name)  # 递归创建子节点
             else:
+                # 否则，创建一个普通的字段节点
                 child_node = cls(key=field_name, expected_type=field_type, instruction=description, example=default)
 
-            root_node.add_child(child_node)
+            root_node.add_child(child_node)  # 将子节点添加到根节点
 
-        return root_node
+        return root_node  # 返回根节点
 
     @staticmethod
     def is_optional_type(tp) -> bool:
-        """Return True if `tp` is `typing.Optional[...]`"""
-        if typing.get_origin(tp) is Union:
-            args = typing.get_args(tp)
-            non_none_types = [arg for arg in args if arg is not type(None)]
-            return len(non_none_types) == 1 and len(args) == 2
+        """如果 `tp` 是 `typing.Optional[...]` 类型，返回 True"""
+        if typing.get_origin(tp) is Union:  # 判断类型是否为 Union
+            args = typing.get_args(tp)  # 获取 Union 的类型参数
+            non_none_types = [arg for arg in args if arg is not type(None)]  # 筛选出非 None 的类型
+            return len(non_none_types) == 1 and len(args) == 2  # 如果只有一个非 None 类型且包含 None，则是 Optional
         return False

@@ -29,27 +29,27 @@ class ArgumentsParingAction(Action):
 
     @property
     def prompt(self):
-        prompt = f"{self.skill.name} function parameters description:\n"
+        # 构建提示信息，描述技能的参数和示例
+        prompt = f"{self.skill.name} 功能参数描述:\n"
         for k, v in self.skill.arguments.items():
-            prompt += f"parameter `{k}`: {v}\n"
+            prompt += f"参数 `{k}`: {v}\n"
         prompt += "\n---\n"
-        prompt += "Examples:\n"
+        prompt += "示例:\n"
         for e in self.skill.examples:
-            prompt += f"If want you to do `{e.ask}`, return `{e.answer}` brief and clear.\n"
+            prompt += f"如果你想让我做 `{e.ask}`，返回 `{e.answer}` 简洁明了。\n"
         prompt += "\n---\n"
         prompt += (
-            f"\nRefer to the `{self.skill.name}` function description, and fill in the function parameters according "
-            'to the example "I want you to do xx" in the Examples section.'
-            f"\nNow I want you to do `{self.ask}`, return function parameters in Examples format above, brief and "
-            "clear."
+            f"\n参照 `{self.skill.name}` 函数描述，并根据示例中 '我想让你做xx' 填写函数参数。\n"
+            f"现在我想让你做 `{self.ask}`，请返回像示例中一样的函数参数，简洁明了。"
         )
         return prompt
 
     async def run(self, with_message=None, **kwargs) -> Message:
+        # 根据提示生成函数参数
         prompt = self.prompt
         rsp = await self.llm.aask(
             msg=prompt,
-            system_msgs=["You are a function parser.", "You can convert spoken words into function parameters."],
+            system_msgs=["你是一个函数解析器。", "你可以将口语转换为函数参数。"],
             stream=False,
         )
         logger.debug(f"SKILL:{prompt}\n, RESULT:{rsp}")
@@ -59,12 +59,13 @@ class ArgumentsParingAction(Action):
 
     @staticmethod
     def parse_arguments(skill_name, txt) -> dict:
+        # 解析返回的文本，将其转换为函数参数字典
         prefix = skill_name + "("
         if prefix not in txt:
-            logger.error(f"{skill_name} not in {txt}")
+            logger.error(f"{skill_name} 不在 {txt} 中")
             return None
         if ")" not in txt:
-            logger.error(f"')' not in {txt}")
+            logger.error(f"')' 不在 {txt} 中")
             return None
         begin_ix = txt.find(prefix)
         end_ix = txt.rfind(")")
@@ -86,7 +87,7 @@ class SkillAction(Action):
     rsp: Optional[Message] = None
 
     async def run(self, with_message=None, **kwargs) -> Message:
-        """Run action"""
+        """执行技能操作"""
         options = deepcopy(kwargs)
         if self.args:
             for k in self.args.keys():
@@ -97,17 +98,18 @@ class SkillAction(Action):
             self.rsp = Message(content=rsp, role="assistant", cause_by=self)
         except Exception as e:
             logger.exception(f"{e}, traceback:{traceback.format_exc()}")
-            self.rsp = Message(content=f"Error: {e}", role="assistant", cause_by=self)
+            self.rsp = Message(content=f"错误: {e}", role="assistant", cause_by=self)
         return self.rsp
 
     @staticmethod
     async def find_and_call_function(function_name, args, **kwargs) -> str:
         try:
+            # 导入模块并调用指定函数
             module = importlib.import_module("metagpt.learn")
             function = getattr(module, function_name)
-            # Invoke function and return result
+            # 调用函数并返回结果
             result = await function(**args, **kwargs)
             return result
         except (ModuleNotFoundError, AttributeError):
-            logger.error(f"{function_name} not found")
-            raise ValueError(f"{function_name} not found")
+            logger.error(f"{function_name} 未找到")
+            raise ValueError(f"{function_name} 未找到")

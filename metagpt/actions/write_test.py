@@ -38,33 +38,39 @@ you should correctly import the necessary classes based on these file locations!
 
 
 class WriteTest(Action):
-    name: str = "WriteTest"
-    i_context: Optional[TestingContext] = None
+    # 类名：WriteTest，表示一个编写测试的动作
+    name: str = "WriteTest"  # 动作名称
+    i_context: Optional[TestingContext] = None  # 测试上下文，可选
 
     async def write_code(self, prompt):
-        code_rsp = await self._aask(prompt)
+        # 异步方法，用于生成代码
+        code_rsp = await self._aask(prompt)  # 向语言模型请求生成代码
 
         try:
+            # 尝试解析代码
             code = CodeParser.parse_code(text=code_rsp)
         except Exception:
-            # Handle the exception if needed
+            # 如果代码解析失败，记录错误并返回原始的代码响应
             logger.error(f"Can't parse the code: {code_rsp}")
-
-            # Return code_rsp in case of an exception, assuming llm just returns code as it is and doesn't wrap it inside ```
-            code = code_rsp
+            code = code_rsp  # 在解析失败的情况下，直接返回原始代码响应
         return code
 
     async def run(self, *args, **kwargs) -> TestingContext:
+        # 异步方法，用于运行测试生成逻辑
         if not self.i_context.test_doc:
+            # 如果没有测试文档，则创建一个新的测试文档
             self.i_context.test_doc = Document(
-                filename="test_" + self.i_context.code_doc.filename, root_path=TEST_CODES_FILE_REPO
+                filename="test_" + self.i_context.code_doc.filename,  # 使用源代码文件名创建测试文件名
+                root_path=TEST_CODES_FILE_REPO  # 测试代码文件的根路径
             )
-        fake_root = "/data"
+        fake_root = "/data"  # 设置一个假根目录路径
         prompt = PROMPT_TEMPLATE.format(
-            code_to_test=self.i_context.code_doc.content,
-            test_file_name=self.i_context.test_doc.filename,
-            source_file_path=fake_root + "/" + self.i_context.code_doc.root_relative_path,
-            workspace=fake_root,
+            code_to_test=self.i_context.code_doc.content,  # 要测试的代码内容
+            test_file_name=self.i_context.test_doc.filename,  # 测试文件的名称
+            source_file_path=fake_root + "/" + self.i_context.code_doc.root_relative_path,  # 源代码文件的路径
+            workspace=fake_root,  # 工作空间
         )
+        # 使用模板生成提示并生成代码
         self.i_context.test_doc.content = await self.write_code(prompt)
+        # 返回更新后的测试上下文
         return self.i_context

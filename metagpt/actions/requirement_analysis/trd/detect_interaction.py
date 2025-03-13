@@ -16,41 +16,41 @@ from metagpt.utils.common import general_after_log, to_markdown_code_block
 
 @register_tool(include_functions=["run"])
 class DetectInteraction(Action):
-    """DetectInteraction deal with the following situations:
-    1. Given a natural text of user requirements, it identifies the interaction events and the participants of those interactions from the original text.
+    """DetectInteraction 处理以下情况：
+    1. 给定用户需求的自然语言文本，从中识别交互事件及其参与者。
     """
 
     @retry(
-        wait=wait_random_exponential(min=1, max=20),
-        stop=stop_after_attempt(6),
-        after=general_after_log(logger),
+        wait=wait_random_exponential(min=1, max=20),  # 在 1 到 20 秒之间随机指数回退等待时间
+        stop=stop_after_attempt(6),  # 最多重试 6 次
+        after=general_after_log(logger),  # 失败后记录日志
     )
     async def run(
         self,
         *,
-        user_requirements: str,
-        use_case_actors: str,
-        legacy_interaction_events: str,
-        evaluation_conclusion: str,
+        user_requirements: str,  # 用户需求的自然语言文本
+        use_case_actors: str,  # 用例中的参与者描述
+        legacy_interaction_events: str,  # 先前识别出的交互事件版本
+        evaluation_conclusion: str,  # 外部评估关于交互事件的结论
     ) -> str:
         """
-        Identifies interaction events and participants from the user requirements.
+        识别用户需求中的交互事件及其参与者。
 
-        Args:
-            user_requirements (str): A natural language text detailing the user's requirements.
-            use_case_actors (str): A description of the actors involved in the use case.
-            legacy_interaction_events (str): The previous version of the interaction events identified by you.
-            evaluation_conclusion (str): The external evaluation conclusions regarding the interactions events identified by you.
+        参数:
+            user_requirements (str): 用户需求的自然语言描述。
+            use_case_actors (str): 用例中涉及的参与者信息。
+            legacy_interaction_events (str): 之前版本中识别出的交互事件。
+            evaluation_conclusion (str): 外部评估对交互事件的反馈和结论。
 
-        Returns:
-            str: A string summarizing the identified interaction events and their participants.
+        返回:
+            str: 总结交互事件及其参与者的信息。
 
-        Example:
+        示例:
             >>> detect_interaction = DetectInteraction()
-            >>> user_requirements = "User requirements 1. ..."
-            >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
+            >>> user_requirements = "用户需求 1. ..."
+            >>> use_case_actors = "- 角色: 游戏玩家;\\n- 系统: 贪吃蛇游戏; \\n- 外部系统: 游戏中心;"
             >>> previous_version_interaction_events = "['interaction ...', ...]"
-            >>> evaluation_conclusion = "Issues: ..."
+            >>> evaluation_conclusion = "问题: ..."
             >>> interaction_events = await detect_interaction.run(
             >>>    user_requirements=user_requirements,
             >>>    use_case_actors=use_case_actors,
@@ -70,32 +70,32 @@ class DetectInteraction(Action):
 
 
 PROMPT = """
-## Actor, System, External System
+## 角色、系统、外部系统
 {use_case_actors}
 
-## User Requirements
+## 用户需求
 {original_user_requirements}
 
-## Legacy Interaction Events
+## 先前的交互事件
 {previous_version_of_interaction_events}
 
-## Evaluation Conclusion
+## 评估结论
 {the_evaluation_conclusion_of_previous_version_of_trd}
 
 ---
-You are a tool for capturing interaction events.
-"Actor, System, External System" provides the possible participants of the interaction event;
-"Legacy Interaction Events" is the contents of the interaction events that you output earlier;
-Some descriptions in the "Evaluation Conclusion" relate to the content of "User Requirements", and these descriptions in the "Evaluation Conclusion" address some issues regarding the content of "Legacy Interaction Events";
-You need to capture the interaction events occurring in the description within the content of "User Requirements" word-for-word, including:
-1. Who is interacting with whom. An interaction event has a maximum of 2 participants. If there are multiple participants, it indicates that multiple events are combined into one event and should be further split;
-2. When an interaction event occurs, who is the initiator? What data did the initiator enter?
-3. What data does the interaction event ultimately return according to the "User Requirements"?
+你是一个用于捕捉交互事件的工具。
+- "角色、系统、外部系统" 提供了交互事件的可能参与者；
+- "先前的交互事件" 是你之前输出的交互事件内容；
+- "评估结论" 可能涉及 "用户需求" 中的部分描述，并对 "先前的交互事件" 的内容提出了一些问题；
+- 你的任务是从 "用户需求" 内容中逐字捕捉交互事件，包括：
+  1. 识别交互的参与者（每个交互事件最多只能有 2 个参与者；如果有多个参与者，说明多个事件被合并，应进一步拆分）；
+  2. 确定交互事件的发起者，并识别发起者输入的数据；
+  3. 根据 "用户需求" 识别交互事件的最终返回数据。
 
-You can check the data flow described in the "User Requirements" to see if there are any missing interaction events;
-Return a markdown JSON object list, each object of the list containing:
-- a "name" key containing the name of the interaction event;
-- a "participants" key containing a string list of the names of the two participants;
-- a "initiator" key containing the name of the participant who initiate the interaction;
-- a "input" key containing a natural text description about the input data;
+你可以检查 "用户需求" 描述中的数据流，看看是否有缺失的交互事件；
+返回一个 Markdown JSON 对象列表，每个对象包含：
+- "name" 键：交互事件的名称；
+- "participants" 键：包含两个参与者名称的字符串列表；
+- "initiator" 键：包含发起交互事件的参与者名称；
+- "input" 键：包含输入数据的自然语言描述；
 """

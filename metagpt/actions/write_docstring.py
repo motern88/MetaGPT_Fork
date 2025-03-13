@@ -154,13 +154,13 @@ _python_docstring_style = {
 
 
 class WriteDocstring(Action):
-    """This class is used to write docstrings for code.
+    """此类用于为代码编写文档字符串（docstring）。
 
-    Attributes:
-        desc: A string describing the action.
+    属性：
+        desc: 描述该动作的字符串。
     """
 
-    desc: str = "Write docstring for code."
+    desc: str = "为代码编写文档字符串。"
     i_context: Optional[str] = None
 
     async def run(
@@ -169,50 +169,60 @@ class WriteDocstring(Action):
         system_text: str = PYTHON_DOCSTRING_SYSTEM,
         style: Literal["google", "numpy", "sphinx"] = "google",
     ) -> str:
-        """Writes docstrings for the given code and system text in the specified style.
+        """根据指定的风格为给定的代码和系统文本编写文档字符串。
 
-        Args:
-            code: A string of Python code.
-            system_text: A string of system text.
-            style: A string specifying the style of the docstring. Can be 'google', 'numpy', or 'sphinx'.
+        参数：
+            code: 一个 Python 代码字符串。
+            system_text: 一个系统文本字符串。
+            style: 一个指定文档字符串风格的字符串，可以是 'google'，'numpy' 或 'sphinx'。
 
-        Returns:
-            The Python code with docstrings added.
+        返回：
+            添加了文档字符串的 Python 代码。
         """
         system_text = system_text.format(style=style, example=_python_docstring_style[style])
-        simplified_code = _simplify_python_code(code)
+        simplified_code = _simplify_python_code(code)  # 简化代码
         documented_code = await self._aask(f"```python\n{simplified_code}\n```", [system_text])
-        documented_code = OutputParser.parse_python_code(documented_code)
-        return merge_docstring(code, documented_code)
+        documented_code = OutputParser.parse_python_code(documented_code)  # 解析文档代码
+        return merge_docstring(code, documented_code)  # 合并原始代码与文档字符串
 
     @staticmethod
     async def write_docstring(
         filename: str | Path, overwrite: bool = False, style: Literal["google", "numpy", "sphinx"] = "google"
     ) -> str:
-        data = await aread(str(filename))
-        code = await WriteDocstring().run(data, style=style)
-        if overwrite:
+        """为文件中的代码添加文档字符串。
+
+        参数：
+            filename: 代码文件的路径。
+            overwrite: 是否覆盖原文件中的代码。默认为 False。
+            style: 文档字符串的风格，默认为 'google'。
+
+        返回：
+            带有文档字符串的 Python 代码。
+        """
+        data = await aread(str(filename))  # 读取文件内容
+        code = await WriteDocstring().run(data, style=style)  # 生成文档字符串
+        if overwrite:  # 如果设置为覆盖，写回文件
             await awrite(filename, code)
         return code
 
 
 def _simplify_python_code(code: str) -> None:
-    """Simplifies the given Python code by removing expressions and the last if statement.
+    """简化给定的 Python 代码，通过移除表达式和最后的 if 语句。
 
-    Args:
-        code: A string of Python code.
+    参数：
+        code: 一个 Python 代码字符串。
 
-    Returns:
-        The simplified Python code.
+    返回：
+        简化后的 Python 代码。
     """
-    code_tree = ast.parse(code)
-    code_tree.body = [i for i in code_tree.body if not isinstance(i, ast.Expr)]
-    if isinstance(code_tree.body[-1], ast.If):
+    code_tree = ast.parse(code)  # 解析代码
+    code_tree.body = [i for i in code_tree.body if not isinstance(i, ast.Expr)]  # 移除表达式
+    if isinstance(code_tree.body[-1], ast.If):  # 如果最后是 if 语句，移除它
         code_tree.body.pop()
-    return ast.unparse(code_tree)
+    return ast.unparse(code_tree)  # 反序列化简化后的代码
 
 
 if __name__ == "__main__":
     import fire
 
-    fire.Fire(WriteDocstring.write_docstring)
+    fire.Fire(WriteDocstring.write_docstring)  # 通过 fire 库调用命令行功能

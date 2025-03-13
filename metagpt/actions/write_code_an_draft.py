@@ -574,16 +574,22 @@ Overall, the code could benefit from refactoring to improve readability, maintai
 
 
 class WriteCodeAN(Action):
-    """Write a code review for the context."""
+    """为上下文写代码审查。"""
 
     async def run(self, context):
-        self.llm.system_prompt = "You are an outstanding engineer and can implement any code"
+        # 设置系统提示，让 LLM 知道自己是一个出色的工程师，能够实现任何代码
+        self.llm.system_prompt = "你是一个出色的工程师，可以实现任何代码"
+
+        # 使用 WRITE_MOVE_NODE 填充代码审查请求
         return await WRITE_MOVE_NODE.fill(req=context, llm=self.llm, schema="json")
 
 
+# 主函数
 async def main():
+    # 执行代码审查操作
     await WriteCodeAN().run(CODE_REVIEW_SMALLEST_CONTEXT)
 
 
 if __name__ == "__main__":
+    # 运行主函数
     asyncio.run(main())

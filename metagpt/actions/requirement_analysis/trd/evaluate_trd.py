@@ -14,8 +14,8 @@ from metagpt.utils.common import to_markdown_code_block
 
 @register_tool(include_functions=["run"])
 class EvaluateTRD(EvaluateAction):
-    """EvaluateTRD deal with the following situations:
-    1. Given a TRD, evaluates the quality and returns a conclusion.
+    """EvaluateTRD 处理以下情况：
+    1. 给定一个 TRD（技术需求文档），评估其质量并返回结论。
     """
 
     async def run(
@@ -28,26 +28,26 @@ class EvaluateTRD(EvaluateAction):
         legacy_user_requirements_interaction_events: str = "",
     ) -> EvaluationData:
         """
-        Evaluates the given TRD based on user requirements, use case actors, interaction events, and optionally external legacy interaction events.
+        根据用户需求、用例参与者、交互事件以及可选的外部交互事件来评估给定的 TRD。
 
-        Args:
-            user_requirements (str): The requirements provided by the user.
-            use_case_actors (str): The actors involved in the use case.
-            trd (str): The TRD (Technical Requirements Document) to be evaluated.
-            interaction_events (str): The interaction events related to the user requirements and the TRD.
-            legacy_user_requirements_interaction_events (str, optional): External legacy interaction events tied to the user requirements. Defaults to an empty string.
+        参数：
+            user_requirements (str): 用户提供的需求。
+            use_case_actors (str): 用例涉及的参与者。
+            trd (str): 需要评估的 TRD（技术需求文档）。
+            interaction_events (str): 相关的交互事件，包括用户需求与 TRD 的交互事件。
+            legacy_user_requirements_interaction_events (str, 可选): 先前与用户需求相关的外部交互事件，默认为空字符串。
 
-        Returns:
-            EvaluationData: The conclusion of the TRD evaluation.
+        返回：
+            EvaluationData: TRD 评估的结论。
 
-        Example:
+        示例：
             >>> evaluate_trd = EvaluateTRD()
-            >>> user_requirements = "User requirements 1. ..."
-            >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
+            >>> user_requirements = "用户需求 1. ..."
+            >>> use_case_actors = "- 角色: 游戏玩家;\\n- 系统: 贪吃蛇游戏; \\n- 外部系统: 游戏中心;"
             >>> trd = "## TRD\\n..."
-            >>> interaction_events = "['interaction ...', ...]"
-            >>> evaluation_conclusion = "Issues: ..."
-            >>> legacy_user_requirements_interaction_events = ["user requirements 1. ...", ...]
+            >>> interaction_events = "['交互事件 ...', ...]"
+            >>> evaluation_conclusion = "问题: ..."
+            >>> legacy_user_requirements_interaction_events = ["用户需求 1. ...", ...]
             >>> evaluation = await evaluate_trd.run(
             >>>    user_requirements=user_requirements,
             >>>    use_case_actors=use_case_actors,
@@ -60,8 +60,7 @@ class EvaluateTRD(EvaluateAction):
             True
             >>> evaluation_conclusion = evaluation.conclusion
             >>> print(evaluation_conclusion)
-            ## Conclustion\n balabalabala...
-
+            ## 结论\n balabalabala...
         """
         prompt = PROMPT.format(
             use_case_actors=use_case_actors,
@@ -74,42 +73,45 @@ class EvaluateTRD(EvaluateAction):
 
 
 PROMPT = """
-## Actor, System, External System
+## 角色、系统、外部系统
 {use_case_actors}
 
-## User Requirements
+## 用户需求
 {user_requirements}
 
-## TRD Design
+## TRD 设计
 {trd}
 
-## External Interaction Events
+## 外部交互事件
 {legacy_user_requirements_interaction_events}
 
-## Interaction Events
+## 交互事件
 {legacy_user_requirements_interaction_events}
 {interaction_events}
 
 ---
-You are a tool to evaluate the TRD design.
-"Actor, System, External System" provides the all possible participants in interaction events;
-"User Requirements" provides the original requirements description, any parts not mentioned in this description will be handled by other modules, so do not fabricate requirements;
-"External Interaction Events" is provided by an external module for your use, its content is also referred to "Interaction Events" section; The content in "External Interaction Events" can be determined to be problem-free;
-"External Interaction Events" provides some identified interaction events and the interacting participants based on the part of the content of the "User Requirements";
-"Interaction Events" provides some identified interaction events and the interacting participants based on the content of the "User Requirements";
-"TRD Design" provides a comprehensive design of the implementation steps for the original requirements, incorporating the interaction events from "Interaction Events" and adding additional steps to connect the complete upstream and downstream data flows;
-In order to integrate the full upstream and downstream data flow, the "TRD Design" allows for the inclusion of steps that do not appear in the original requirements description, but do not conflict with those explicitly described in the "User Requirements";
-Which interactions from "Interaction Events" correspond to which steps in "TRD Design"? Please provide reasons.
-Which aspects of "TRD Design" and "Interaction Events" do not align with the descriptions in "User Requirements"? Please provide detailed descriptions and reasons.
-If the descriptions in "User Requirements" are divided into multiple steps in "TRD Design" and "Interaction Events," it can be considered compliant with the descriptions in "User Requirements" as long as it does not conflict with them;
-There is a possibility of missing details in the descriptions of "User Requirements". Any additional steps in "TRD Design" and "Interaction Events" are considered compliant with "User Requirements" as long as they do not conflict with the descriptions provided in "User Requirements";
-If there are interaction events with external systems in "TRD Design", you must explicitly specify the ID of the external interface to use for the interaction events, the input and output parameters of the used external interface must explictly match the input and output of the interaction event；
-Does the sequence of steps in "Interaction Events" cause performance or cost issues? Please provide detailed descriptions and reasons;
-If each step of "TRD Design" has input data, its input data is provided either by the output of the previous steps or by participants of "Actor, System, External System", and there should be no passive data;
-Return a markdown JSON object with:
-- an "issues" key containing a string list of natural text about the issues that need to be addressed, found in the "TRD Design" if any exist, each issue found must provide a detailed description and include reasons;
-- a "conclusion" key containing the evaluation conclusion;
-- a "correspondence_between" key containing the judgement detail of the natural text string list about the correspondence between "Interaction Events" and "TRD Design" steps;
-- a "misalignment" key containing the judgement detail of the natural text string list about the misalignment with "User Requirements";
-- a "is_pass" key containing a true boolean value if there is not any issue in the "TRD Design";
+你是一个用于评估 TRD 设计的工具。
+- "角色、系统、外部系统" 提供了交互事件中所有可能的参与者；
+- "用户需求" 提供了原始需求描述，任何未在此描述中提及的部分将由其他模块处理，因此请勿凭空捏造需求；
+- "外部交互事件" 由外部模块提供供你使用，其内容与 "交互事件" 部分相关，"外部交互事件" 的内容可视为无问题；
+- "外部交互事件" 提供了一些已识别的交互事件及其参与者，这些内容基于 "用户需求" 的部分内容；
+- "交互事件" 提供了一些已识别的交互事件及其参与者，这些内容基于 "用户需求" 的全部内容；
+- "TRD 设计" 详细描述了实现原始需求的步骤，它结合了 "交互事件" 中的交互，并补充了其他步骤以形成完整的上下游数据流；
+- 为了整合完整的数据流，"TRD 设计" 可以包含未在 "用户需求" 中明确描述的步骤，但不能与 "用户需求" 中已明确描述的内容冲突。
+
+你的任务：
+1. 确定 "交互事件" 中的交互步骤与 "TRD 设计" 中的哪些步骤相对应，并提供理由。
+2. 找出 "TRD 设计" 和 "交互事件" 中哪些部分与 "用户需求" 描述不符，并详细说明原因。
+3. 如果 "用户需求" 描述的内容被拆分成多个步骤出现在 "TRD 设计" 和 "交互事件" 中，只要不冲突，就可以视为符合 "用户需求"。
+4. "用户需求" 描述的内容可能存在遗漏，"TRD 设计" 和 "交互事件" 允许补充额外的步骤，但不能与 "用户需求" 冲突。
+5. 如果 "TRD 设计" 中涉及与外部系统的交互，你必须明确指定使用的外部接口 ID，并且该接口的输入输出参数必须与交互事件的输入输出数据完全匹配。
+6. 评估 "交互事件" 的步骤顺序是否会引发性能或成本问题，并详细说明理由。
+7. 确保 "TRD 设计" 的每个步骤都有明确的输入数据，这些输入数据应来自前序步骤的输出，或者由 "角色、系统、外部系统" 提供，不应出现无来源数据。
+
+返回一个 Markdown 格式的 JSON 对象，包含：
+- "issues"：包含 "TRD 设计" 中需要解决的问题的字符串列表，每个问题必须有详细描述和理由；
+- "conclusion"：评估结论；
+- "correspondence_between"：字符串列表，描述 "交互事件" 与 "TRD 设计" 步骤的对应关系；
+- "misalignment"：字符串列表，描述与 "用户需求" 不符的部分；
+- "is_pass"：如果 "TRD 设计" 没有问题，则值为 `true`。
 """

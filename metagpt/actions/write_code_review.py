@@ -147,26 +147,26 @@ class WriteCodeReview(Action):
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def write_code_review_and_rewrite(self, context_prompt, cr_prompt, doc):
         filename = doc.filename
-        cr_rsp = await self._aask(context_prompt + cr_prompt)
+        cr_rsp = await self._aask(context_prompt + cr_prompt)  # 调用 LLM 获取代码审查的结果
         result = CodeParser.parse_block("Code Review Result", cr_rsp)
-        if "LGTM" in result:
+        if "LGTM" in result:  # 如果审查结果是 "LGTM"（代码好），则不需要修改
             return result, None
 
-        # if LBTM, rewrite code
+        # 如果审查结果是 "LBTM"（需要修改），则进行代码重写
         async with EditorReporter(enable_llm_stream=True) as reporter:
             await reporter.async_report(
                 {"type": "code", "filename": filename, "src_path": doc.root_relative_path}, "meta"
             )
             rewrite_prompt = f"{context_prompt}\n{cr_rsp}\n{REWRITE_CODE_TEMPLATE.format(filename=filename)}"
-            code_rsp = await self._aask(rewrite_prompt)
-            code = CodeParser.parse_code(text=code_rsp)
+            code_rsp = await self._aask(rewrite_prompt)  # 请求 LLM 重写代码
+            code = CodeParser.parse_code(text=code_rsp)  # 解析重写后的代码
             doc.content = code
-            await reporter.async_report(doc, "document")
-        return result, code
+            await reporter.async_report(doc, "document")  # 将修改后的代码报告给编辑器
+        return result, code  # 返回审查结果和修改后的代码
 
     async def run(self, *args, **kwargs) -> CodingContext:
-        iterative_code = self.i_context.code_doc.content
-        k = self.context.config.code_validate_k_times or 1
+        iterative_code = self.i_context.code_doc.content  # 当前迭代中的代码
+        k = self.context.config.code_validate_k_times or 1  # 重复验证代码的次数
 
         for i in range(k):
             format_example = FORMAT_EXAMPLE.format(filename=self.i_context.code_doc.filename)
@@ -209,21 +209,19 @@ class WriteCodeReview(Action):
             result, rewrited_code = await self.write_code_review_and_rewrite(
                 context_prompt, cr_prompt, self.i_context.code_doc
             )
-            if "LBTM" in result:
+            if "LBTM" in result:  # 如果需要重写代码，则更新迭代代码
                 iterative_code = rewrited_code
-            elif "LGTM" in result:
+            elif "LGTM" in result:  # 如果审查通过，则返回最终代码
                 self.i_context.code_doc.content = iterative_code
                 return self.i_context
-        # code_rsp = await self._aask_v1(prompt, "code_rsp", OUTPUT_MAPPING)
-        # self._save(context, filename, code)
-        # 如果rewrited_code是None（原code perfect），那么直接返回code
+        # 如果代码没有修改，返回最终的代码
         self.i_context.code_doc.content = iterative_code
         return self.i_context
 
 
 @register_tool(include_functions=["run"])
 class ValidateAndRewriteCode(Action):
-    """According to the design and task documents, validate the code to ensure it is complete and correct."""
+    """根据设计文档和任务文档验证代码，确保代码完整正确。"""
 
     name: str = "ValidateAndRewriteCode"
 
@@ -234,22 +232,20 @@ class ValidateAndRewriteCode(Action):
         project_schedule_input: str = "",
         code_validate_k_times: int = 2,
     ) -> str:
-        """Validates the provided code based on the accompanying system design and project schedule documentation, return the complete and correct code.
+        """根据提供的设计和任务文档验证代码，确保代码正确并完善，最后返回修改后的代码。
 
-        Read the code from code_path, and write the final code to code_path.
-        If both system_design_input and project_schedule_input are absent, it will return and do nothing.
+        根据代码路径读取代码，并将最终代码写回原文件。如果没有提供设计文档和任务文档，则什么也不做。
 
-        Args:
-            code_path (str): The file path of the code snippet to be validated. This should be a string containing the path to the source code file.
-            system_design_input (str): Content or file path of the design document associated with the code. This should describe the system architecture, used in the code. It helps provide context for the validation process.
-            project_schedule_input (str): Content or file path of the task document describing what the code is intended to accomplish. This should outline the functional requirements or objectives of the code.
-            code_validate_k_times (int, optional): The number of iterations for validating and potentially rewriting the code. Defaults to 2.
+        参数：
+            code_path (str): 代码文件路径，包含需要验证的源代码。
+            system_design_input (str): 与代码相关的系统设计文档内容或文件路径。描述代码涉及的系统架构，帮助验证过程。
+            project_schedule_input (str): 任务文档内容或文件路径，描述代码的功能需求或目标。
+            code_validate_k_times (int, 可选): 验证和修改代码的次数，默认为2次。
 
-        Returns:
-            str: The potentially corrected or approved code after validation.
+        返回：
+            str: 完善后的代码。
 
-        Example Usage:
-            # Example of how to call the run method with a code snippet and documentation
+        使用示例：
             await ValidateAndRewriteCode().run(
                 code_path="/tmp/game.js",
                 system_design_input="/tmp/system_design.json",
@@ -258,7 +254,7 @@ class ValidateAndRewriteCode(Action):
         """
         if not system_design_input and not project_schedule_input:
             logger.info(
-                "Both `system_design_input` and `project_schedule_input` are absent, ValidateAndRewriteCode will do nothing."
+                "没有提供 `system_design_input` 和 `project_schedule_input`，ValidateAndRewriteCode 不做任何操作。"
             )
             return
 
@@ -280,7 +276,7 @@ class ValidateAndRewriteCode(Action):
             cr_prompt = EXAMPLE_AND_INSTRUCTION.format(
                 format_example=FORMAT_EXAMPLE.format(filename=code_path),
             )
-            logger.info(f"The {i+1}th time to CodeReview: {code_path}.")
+            logger.info(f"第 {i+1} 次代码审查: {code_path}.")
             result, rewrited_code = await review_action.write_code_review_and_rewrite(
                 context_prompt, cr_prompt, doc=code_doc
             )
@@ -293,13 +289,13 @@ class ValidateAndRewriteCode(Action):
         await awrite(filename=code_path, data=code)
 
         return (
-            f"The review and rewriting of the code in the file '{os.path.basename(code_path)}' has been completed."
+            f"代码文件 '{os.path.basename(code_path)}' 的审查和重写已完成。"
             + code
         )
 
     @staticmethod
     async def _try_aread(input: str) -> str:
-        """Try to read from the path if it's a file; return input directly if not."""
+        """尝试从路径读取文件，如果不是路径，则直接返回输入。"""
 
         if os.path.exists(input):
             return await aread(input)
@@ -308,7 +304,7 @@ class ValidateAndRewriteCode(Action):
 
     @staticmethod
     def _create_code_doc(code_path: str, code: str) -> Document:
-        """Create a Document to represent the code doc."""
+        """创建代码文档对象。"""
 
         path = Path(code_path)
 

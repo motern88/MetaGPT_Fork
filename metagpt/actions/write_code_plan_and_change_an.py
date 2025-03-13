@@ -203,23 +203,34 @@ Role: You are a professional engineer; The main goal is to complete incremental 
 9. Attention: Retain details that are not related to incremental development but are important for maintaining the consistency and clarity of the old code.
 """
 
+# 定义代码计划和变更的动作节点，包含开发计划和增量变更
 CODE_PLAN_AND_CHANGE = [DEVELOPMENT_PLAN, INCREMENTAL_CHANGE]
 
+# 使用 ActionNode 从子节点创建 WriteCodePlanAndChange 节点
 WRITE_CODE_PLAN_AND_CHANGE_NODE = ActionNode.from_children("WriteCodePlanAndChange", CODE_PLAN_AND_CHANGE)
 
 
 class WriteCodePlanAndChange(Action):
     name: str = "WriteCodePlanAndChange"
+    # 定义输入上下文类型 CodePlanAndChangeContext
     i_context: CodePlanAndChangeContext = Field(default_factory=CodePlanAndChangeContext)
+    # 项目仓库对象，用于获取源代码等
     repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
+    # 额外的输入参数，通常用于传递文件名或配置
     input_args: Optional[BaseModel] = Field(default=None, exclude=True)
 
     async def run(self, *args, **kwargs):
-        self.llm.system_prompt = "You are a professional software engineer, your primary responsibility is to "
-        "meticulously craft comprehensive incremental development plan and deliver detailed incremental change"
+        # 设置系统提示，让 LLM 知道自己是一个专业的软件工程师，主要任务是制定增量开发计划和变更
+        self.llm.system_prompt = (
+            "你是一个专业的软件工程师，你的主要责任是精心制定全面的增量开发计划，并交付详细的增量变更"
+        )
+
+        # 加载 PRD（产品需求文档）、设计文档和任务文档
         prd_doc = await Document.load(filename=self.i_context.prd_filename)
         design_doc = await Document.load(filename=self.i_context.design_filename)
         task_doc = await Document.load(filename=self.i_context.task_filename)
+
+        # 构建上下文，包含需求、问题、PRD文档、设计文档、任务文档以及历史代码
         context = CODE_PLAN_AND_CHANGE_CONTEXT.format(
             requirement=f"```text\n{self.i_context.requirement}\n```",
             issue=f"```text\n{self.i_context.issue}\n```",
@@ -228,13 +239,22 @@ class WriteCodePlanAndChange(Action):
             task=task_doc.content,
             code=await self.get_old_codes(),
         )
-        logger.info("Writing code plan and change..")
+
+        # 记录日志信息，表示正在写入代码计划和变更
+        logger.info("正在编写代码计划和变更..")
+
+        # 填充上下文并返回最终生成的结果，使用 LLM 填充模板
         return await WRITE_CODE_PLAN_AND_CHANGE_NODE.fill(req=context, llm=self.llm, schema="json")
 
     async def get_old_codes(self) -> str:
+        # 获取仓库中的所有源代码文件
         old_codes = await self.repo.srcs.get_all()
+
+        # 将每个代码文件的内容格式化为 Markdown 代码块
         codes = [
-            f"### File Name: `{code.filename}`\n```{get_markdown_code_block_type(code.filename)}\n{code.content}```\n"
+            f"### 文件名: `{code.filename}`\n```{get_markdown_code_block_type(code.filename)}\n{code.content}```\n"
             for code in old_codes
         ]
+
+        # 返回所有代码的格式化文本
         return "\n".join(codes)

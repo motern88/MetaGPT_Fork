@@ -86,36 +86,53 @@ ATTENTION: Use '##' to SPLIT SECTIONS, not '#'. Output format carefully referenc
 
 
 class WriteCode(Action):
-    name: str = "WriteCode"
-    i_context: Document = Field(default_factory=Document)
-    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
-    input_args: Optional[BaseModel] = Field(default=None, exclude=True)
+    name: str = "WriteCode"  # Action的名称，用于标识此行为
+    i_context: Document = Field(default_factory=Document)  # 存储与写代码相关的上下文信息
+    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)  # 项目代码库（可选）
+    input_args: Optional[BaseModel] = Field(default=None, exclude=True)  # 输入参数（可选）
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def write_code(self, prompt) -> str:
-        code_rsp = await self._aask(prompt)
-        code = CodeParser.parse_code(text=code_rsp)
+        """
+        使用给定的提示生成代码，并返回生成的代码。
+        使用重试机制处理失败。
+        """
+        code_rsp = await self._aask(prompt)  # 请求生成代码
+        code = CodeParser.parse_code(text=code_rsp)  # 解析生成的代码
         return code
 
     async def run(self, *args, **kwargs) -> CodingContext:
+        """
+        运行此动作，生成代码并更新相应的文档。
+        """
         bug_feedback = None
+        # 如果存在bug反馈文件，加载该文件
         if self.input_args and hasattr(self.input_args, "issue_filename"):
             bug_feedback = await Document.load(self.input_args.issue_filename)
+
+        # 加载编码上下文
         coding_context = CodingContext.loads(self.i_context.content)
+
+        # 如果没有找到代码计划和变更文档，则从仓库中获取
         if not coding_context.code_plan_and_change_doc:
             coding_context.code_plan_and_change_doc = await self.repo.docs.code_plan_and_change.get(
                 filename=coding_context.task_doc.filename
             )
+
+        # 获取测试文档、需求文档等
         test_doc = await self.repo.test_outputs.get(filename="test_" + coding_context.filename + ".json")
         requirement_doc = await Document.load(self.input_args.requirements_filename)
         summary_doc = None
         if coding_context.design_doc and coding_context.design_doc.filename:
             summary_doc = await self.repo.docs.code_summary.get(filename=coding_context.design_doc.filename)
+
+        # 处理测试文档的日志
         logs = ""
         if test_doc:
             test_detail = RunCodeResult.loads(test_doc.content)
             logs = test_detail.stderr
 
+        # 获取代码上下文
         if self.config.inc or bug_feedback:
             code_context = await self.get_codes(
                 coding_context.task_doc, exclude=self.i_context.filename, project_repo=self.repo, use_inc=True
@@ -125,6 +142,7 @@ class WriteCode(Action):
                 coding_context.task_doc, exclude=self.i_context.filename, project_repo=self.repo
             )
 
+        # 根据是否增量开发选择不同的提示模板
         if self.config.inc:
             prompt = REFINED_TEMPLATE.format(
                 user_requirement=requirement_doc.content if requirement_doc else "",
@@ -151,72 +169,67 @@ class WriteCode(Action):
                 demo_filename=Path(self.i_context.filename).stem,
                 summary_log=summary_doc.content if summary_doc else "",
             )
+
+        # 记录正在编写的文件名
         logger.info(f"Writing {coding_context.filename}..")
+
+        # 使用编辑器报告工具来流式传输结果
         async with EditorReporter(enable_llm_stream=True) as reporter:
             await reporter.async_report({"type": "code", "filename": coding_context.filename}, "meta")
+
+            # 获取生成的代码
             code = await self.write_code(prompt)
+
+            # 如果代码文档不存在，则创建新的文档
             if not coding_context.code_doc:
-                # avoid root_path pydantic ValidationError if use WriteCode alone
                 coding_context.code_doc = Document(
                     filename=coding_context.filename, root_path=str(self.repo.src_relative_path)
                 )
             coding_context.code_doc.content = code
+
+            # 上报代码文档
             await reporter.async_report(coding_context.code_doc, "document")
+
         return coding_context
 
     @staticmethod
     async def get_codes(task_doc: Document, exclude: str, project_repo: ProjectRepo, use_inc: bool = False) -> str:
         """
-        Get codes for generating the exclude file in various scenarios.
-
-        Attributes:
-            task_doc (Document): Document object of the task file.
-            exclude (str): The file to be generated. Specifies the filename to be excluded from the code snippets.
-            project_repo (ProjectRepo): ProjectRepo object of the project.
-            use_inc (bool): Indicates whether the scenario involves incremental development. Defaults to False.
-
-        Returns:
-            str: Codes for generating the exclude file.
+        获取用于生成排除文件的代码。
+        根据增量开发场景处理不同的代码生成方式。
         """
         if not task_doc:
             return ""
         if not task_doc.content:
             task_doc = project_repo.docs.task.get(filename=task_doc.filename)
         m = json.loads(task_doc.content)
+        # 根据是否增量开发选择不同的任务列表
         code_filenames = m.get(TASK_LIST.key, []) if not use_inc else m.get(REFINED_TASK_LIST.key, [])
         codes = []
         src_file_repo = project_repo.srcs
-        # Incremental development scenario
+        # 处理增量开发场景
         if use_inc:
             for filename in src_file_repo.all_files:
                 code_block_type = get_markdown_code_block_type(filename)
-                # Exclude the current file from the all code snippets
+                # 排除当前文件
                 if filename == exclude:
-                    # If the file is in the old workspace, use the old code
-                    # Exclude unnecessary code to maintain a clean and focused main.py file, ensuring only relevant and
-                    # essential functionality is included for the project’s requirements
                     if filename != "main.py":
-                        # Use old code
+                        # 使用旧代码
                         doc = await src_file_repo.get(filename=filename)
-                    # If the file is in the src workspace, skip it
                     else:
                         continue
                     codes.insert(
                         0, f"### The name of file to rewrite: `{filename}`\n```{code_block_type}\n{doc.content}```\n"
                     )
                     logger.info(f"Prepare to rewrite `{filename}`")
-                # The code snippets are generated from the src workspace
                 else:
                     doc = await src_file_repo.get(filename=filename)
-                    # If the file does not exist in the src workspace, skip it
                     if not doc:
                         continue
                     codes.append(f"### File Name: `{filename}`\n```{code_block_type}\n{doc.content}```\n\n")
 
-        # Normal scenario
         else:
             for filename in code_filenames:
-                # Exclude the current file to get the code snippets for generating the current file
                 if filename == exclude:
                     continue
                 doc = await src_file_repo.get(filename=filename)

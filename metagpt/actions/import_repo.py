@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 
-This script defines an action to import a Git repository into the MetaGPT project format, enabling incremental
- appending of requirements.
-The MetaGPT project format encompasses a structured representation of project data compatible with MetaGPT's
- capabilities, facilitating the integration of Git repositories into MetaGPT workflows while allowing for the gradual
- addition of requirements.
+此脚本定义了一个动作，用于将 Git 仓库导入到 MetaGPT 项目格式中，从而实现逐步追加需求。
+
+MetaGPT 项目格式包含一个结构化的项目数据表示，兼容 MetaGPT 的功能，便于将 Git 仓库集成到 MetaGPT 工作流中，同时允许逐步添加需求。
 
 """
 import json
@@ -40,28 +38,28 @@ from metagpt.utils.project_repo import ProjectRepo
 
 class ImportRepo(Action):
     """
-    An action to import a Git repository into a graph database and create related artifacts.
+    一个将 Git 仓库导入图数据库并创建相关工件的动作。
 
-    Attributes:
-        repo_path (str): The URL of the Git repository to import.
-        graph_db (Optional[GraphRepository]): The output graph database of the Git repository.
-        rid (str): The output requirement ID.
+    属性：
+        repo_path (str): 要导入的 Git 仓库的 URL。
+        graph_db (Optional[GraphRepository]): Git 仓库的输出图数据库。
+        rid (str): 输出的需求 ID。
     """
 
-    repo_path: str  # input, git repo url.
-    graph_db: Optional[GraphRepository] = None  # output. graph db of the git repository
-    rid: str = ""  # output, requirement ID.
+    repo_path: str  # 输入，Git 仓库的 URL
+    graph_db: Optional[GraphRepository] = None  # 输出，Git 仓库的图数据库
+    rid: str = ""  # 输出，需求 ID。
 
     async def run(self, with_messages: List[Message] = None, **kwargs) -> Message:
         """
-        Runs the import process for the Git repository.
+        执行 Git 仓库的导入过程。
 
-        Args:
-            with_messages (List[Message], optional): Additional messages to include.
-            **kwargs: Additional keyword arguments.
+        参数：
+            with_messages (List[Message], optional): 要包含的附加消息。
+            **kwargs: 其他关键字参数。
 
-        Returns:
-            Message: A message indicating the completion of the import process.
+        返回：
+            Message: 表示导入过程完成的消息。
         """
         await self._create_repo()
         await self._create_prd()
@@ -69,6 +67,9 @@ class ImportRepo(Action):
         self.context.git_repo.archive(comments="Import")
 
     async def _create_repo(self):
+        """
+        克隆 Git 仓库并设置工作目录。
+        """
         path = await git_clone(url=self.repo_path, output_dir=self.config.workspace.path)
         self.repo_path = str(path)
         self.config.project_path = path
@@ -81,6 +82,9 @@ class ImportRepo(Action):
         )
 
     async def _create_prd(self):
+        """
+        提取 README 文件并创建产品需求文档。
+        """
         action = ExtractReadMe(i_context=str(self.context.repo.workdir), context=self.context)
         await action.run()
         graph_repo_pathname = self.context.git_repo.workdir / GRAPH_REPO_FILE_REPO / self.context.git_repo.workdir.name
@@ -95,6 +99,9 @@ class ImportRepo(Action):
         await self.repo.docs.prd.save(filename=self.rid + ".json", content=json.dumps(prd))
 
     async def _create_system_design(self):
+        """
+        重建系统设计图，包括类图和序列图。
+        """
         action = RebuildClassView(
             name="ReverseEngineering", i_context=str(self.context.src_workspace), context=self.context
         )
@@ -136,6 +143,9 @@ class ImportRepo(Action):
         await self._save_system_design()
 
     async def _save_system_design(self):
+        """
+        保存系统设计文档，包括类图和序列图。
+        """
         class_view = await self.context.repo.resources.data_api_design.get(
             filename=self.repo.workdir.stem + ".class_diagram.mmd"
         )
@@ -151,6 +161,9 @@ class ImportRepo(Action):
         await self.context.repo.docs.system_design.save(filename=self.rid + ".json", content=json.dumps(data))
 
     async def _guess_src_workspace(self) -> Path:
+        """
+        猜测源代码工作空间路径。
+        """
         files = list_files(self.context.repo.workdir)
         dirs = [i.parent for i in files if i.name == "__init__.py"]
         distinct = set()
@@ -190,6 +203,9 @@ class ImportRepo(Action):
         return Path(data.src)
 
     async def _guess_main_entry(self, entries: List[Path]) -> Path:
+        """
+        猜测主入口文件路径。
+        """
         if len(entries) == 1:
             return entries[0]
 

@@ -74,14 +74,14 @@ NEW_REQ_TEMPLATE = """
 
 @register_tool(include_functions=["run"])
 class WritePRD(Action):
-    """WritePRD deal with the following situations:
-    1. Bugfix: If the requirement is a bugfix, the bugfix document will be generated.
-    2. New requirement: If the requirement is a new requirement, the PRD document will be generated.
-    3. Requirement update: If the requirement is an update, the PRD document will be updated.
+    """WritePRD 处理以下几种情况：
+    1. Bugfix：如果需求是一个 bug 修复，将生成 bugfix 文档。
+    2. 新需求：如果需求是一个新需求，将生成 PRD 文档。
+    3. 需求更新：如果需求是一个更新，将更新 PRD 文档。
     """
 
-    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
-    input_args: Optional[BaseModel] = Field(default=None, exclude=True)
+    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)  # 项目仓库
+    input_args: Optional[BaseModel] = Field(default=None, exclude=True)  # 输入参数
 
     async def run(
         self,
@@ -94,37 +94,37 @@ class WritePRD(Action):
         **kwargs,
     ) -> Union[AIMessage, str]:
         """
-        Write a Product Requirement Document.
+        编写产品需求文档（PRD）。
 
-        Args:
-            user_requirement (str): A string detailing the user's requirements.
-            output_pathname (str, optional): The output file path of the document. Defaults to "".
-            legacy_prd_filename (str, optional): The file path of the legacy Product Requirement Document to use as a reference. Defaults to "".
-            extra_info (str, optional): Additional information to include in the document. Defaults to "".
-            **kwargs: Additional keyword arguments.
+        参数:
+            user_requirement (str): 用户需求的描述字符串。
+            output_pathname (str, optional): 文档的输出文件路径。默认为 ""。
+            legacy_prd_filename (str, optional): 用作参考的旧 PRD 文件路径。默认为 ""。
+            extra_info (str, optional): 附加信息，默认为 ""。
+            **kwargs: 其他关键字参数。
 
-        Returns:
-            str: The file path of the generated Product Requirement Document.
+        返回:
+            str: 生成的产品需求文档的文件路径。
 
-        Example:
-            # Write a new PRD (Product Requirement Document)
-            >>> user_requirement = "Write a snake game"
+        示例:
+            # 写一个新的 PRD（产品需求文档）
+            >>> user_requirement = "写一个贪吃蛇游戏"
             >>> output_pathname = "snake_game/docs/prd.json"
-            >>> extra_info = "YOUR EXTRA INFO, if any"
+            >>> extra_info = "如果有额外的信息"
             >>> write_prd = WritePRD()
             >>> result = await write_prd.run(user_requirement=user_requirement, output_pathname=output_pathname, extra_info=extra_info)
             >>> print(result)
-            PRD filename: "/absolute/path/to/snake_game/docs/prd.json"
+            PRD 文件名: "/absolute/path/to/snake_game/docs/prd.json"
 
-            # Rewrite an existing PRD (Product Requirement Document) and save to a new path.
-            >>> user_requirement = "Write PRD for a snake game, include new features such as a web UI"
+            # 重写现有 PRD（产品需求文档），并保存到新路径。
+            >>> user_requirement = "写一个贪吃蛇游戏的 PRD，加入新的功能，如 Web UI"
             >>> legacy_prd_filename = "/absolute/path/to/snake_game/docs/prd.json"
             >>> output_pathname = "/absolute/path/to/snake_game/docs/prd_new.json"
-            >>> extra_info = "YOUR EXTRA INFO, if any"
+            >>> extra_info = "如果有额外的信息"
             >>> write_prd = WritePRD()
             >>> result = await write_prd.run(user_requirement=user_requirement, legacy_prd_filename=legacy_prd_filename, extra_info=extra_info)
             >>> print(result)
-            PRD filename: "/absolute/path/to/snake_game/docs/prd_new.json"
+            PRD 文件名: "/absolute/path/to/snake_game/docs/prd_new.json"
         """
         if not with_messages:
             return await self._execute_api(
@@ -154,20 +154,20 @@ class WritePRD(Action):
         ]
 
         if not req:
-            raise FileNotFoundError("No requirement document found.")
+            raise FileNotFoundError("未找到需求文档。")
 
         if await self._is_bugfix(req.content):
-            logger.info(f"Bugfix detected: {req.content}")
+            logger.info(f"检测到 Bugfix: {req.content}")
             return await self._handle_bugfix(req)
-        # remove bugfix file from last round in case of conflict
+        # 删除上轮的 bugfix 文件，以防冲突
         await self.repo.docs.delete(filename=BUGFIX_FILENAME)
 
-        # if requirement is related to other documents, update them, otherwise create a new one
+        # 如果需求与其他文档相关，则更新它们，否则创建一个新文档
         if related_docs := await self.get_related_docs(req, docs):
-            logger.info(f"Requirement update detected: {req.content}")
+            logger.info(f"检测到需求更新: {req.content}")
             await self._handle_requirement_update(req=req, related_docs=related_docs)
         else:
-            logger.info(f"New requirement detected: {req.content}")
+            logger.info(f"检测到新需求: {req.content}")
             await self._handle_new_requirement(req)
 
         kvs = self.input_args.model_dump()
@@ -178,7 +178,7 @@ class WritePRD(Action):
         kvs["requirements_filename"] = str(self.repo.docs.workdir / REQUIREMENT_FILENAME)
         self.context.kwargs.project_path = str(self.repo.workdir)
         return AIMessage(
-            content="PRD is completed. "
+            content="PRD 已完成。"
             + "\n".join(
                 list(self.repo.docs.prd.changed_files.keys())
                 + list(self.repo.resources.prd.changed_files.keys())
@@ -189,11 +189,11 @@ class WritePRD(Action):
         )
 
     async def _handle_bugfix(self, req: Document) -> AIMessage:
-        # ... bugfix logic ...
+        # ... bugfix 逻辑 ...
         await self.repo.docs.save(filename=BUGFIX_FILENAME, content=req.content)
         await self.repo.docs.save(filename=REQUIREMENT_FILENAME, content="")
         return AIMessage(
-            content=f"A new issue is received: {BUGFIX_FILENAME}",
+            content=f"收到新问题: {BUGFIX_FILENAME}",
             cause_by=FixBug,
             instruct_content=AIMessage.create_instruct_value(
                 {
@@ -203,7 +203,7 @@ class WritePRD(Action):
                 },
                 class_name="IssueDetail",
             ),
-            send_to="Alex",  # the name of Engineer
+            send_to="Alex",  # 工程师名称
         )
 
     async def _new_prd(self, requirement: str) -> ActionNode:
@@ -216,7 +216,7 @@ class WritePRD(Action):
         return node
 
     async def _handle_new_requirement(self, req: Document) -> ActionOutput:
-        """handle new requirement"""
+        """处理新需求"""
         async with DocsReporter(enable_llm_stream=True) as reporter:
             await reporter.async_report({"type": "prd"}, "meta")
             node = await self._new_prd(req.content)
@@ -230,7 +230,7 @@ class WritePRD(Action):
             return Documents.from_iterable(documents=[new_prd_doc]).to_action_output()
 
     async def _handle_requirement_update(self, req: Document, related_docs: list[Document]) -> ActionOutput:
-        # ... requirement update logic ...
+        # ... 需求更新逻辑 ...
         for doc in related_docs:
             await self._update_prd(req=req, prd_doc=doc)
         return Documents.from_iterable(documents=related_docs).to_action_output()
@@ -242,8 +242,8 @@ class WritePRD(Action):
         return node.get("issue_type") == "BUG"
 
     async def get_related_docs(self, req: Document, docs: list[Document]) -> list[Document]:
-        """get the related documents"""
-        # refine: use gather to speed up
+        """获取相关文档"""
+        # 优化: 使用 gather 提高速度
         return [i for i in docs if await self._is_related(req, i)]
 
     async def _is_related(self, req: Document, old_prd: Document) -> bool:
@@ -261,28 +261,43 @@ class WritePRD(Action):
         return related_doc
 
     async def _update_prd(self, req: Document, prd_doc: Document) -> Document:
+        # 使用 DocsReporter 进行异步报告
         async with DocsReporter(enable_llm_stream=True) as reporter:
+            # 先报告 PRD 元数据
             await reporter.async_report({"type": "prd"}, "meta")
+            # 合并请求文档和现有 PRD 文档
             new_prd_doc: Document = await self._merge(req=req, related_doc=prd_doc)
+            # 保存新的 PRD 文档
             await self.repo.docs.prd.save_doc(doc=new_prd_doc)
+            # 保存竞争分析图
             await self._save_competitive_analysis(new_prd_doc)
+            # 保存 PDF 格式的 PRD
             md = await self.repo.resources.prd.save_pdf(doc=new_prd_doc)
+            # 记录 PDF 的路径
             await reporter.async_report(self.repo.workdir / md.root_relative_path, "path")
+        # 返回新的 PRD 文档
         return new_prd_doc
 
     async def _save_competitive_analysis(self, prd_doc: Document, output_filename: Path = None):
+        # 解析 PRD 文档内容
         m = json.loads(prd_doc.content)
+        # 获取竞争象限图表数据
         quadrant_chart = m.get(COMPETITIVE_QUADRANT_CHART.key)
         if not quadrant_chart:
             return
+        # 设置输出文件路径
         pathname = output_filename or self.repo.workdir / COMPETITIVE_ANALYSIS_FILE_REPO / Path(prd_doc.filename).stem
         pathname.parent.mkdir(parents=True, exist_ok=True)
+        # 将 mermaid 图表保存为文件
         await mermaid_to_file(self.config.mermaid.engine, quadrant_chart, pathname)
+        # 获取 SVG 图像路径
         image_path = pathname.parent / f"{pathname.name}.svg"
+        # 如果图像文件存在，报告该路径
         if image_path.exists():
             await GalleryReporter().async_report(image_path, "path")
 
     async def _rename_workspace(self, prd):
+        # 如果项目名称为空，尝试从 PRD 或 Action 中提取项目名称
         if not self.project_name:
             if isinstance(prd, (ActionOutput, ActionNode)):
                 ws_name = prd.instruct_content.model_dump()["Project Name"]
@@ -290,36 +305,48 @@ class WritePRD(Action):
                 ws_name = CodeParser.parse_str(block="Project Name", text=prd)
             if ws_name:
                 self.project_name = ws_name
+        # 如果仓库存在，重命名 Git 仓库的根目录
         if self.repo:
             self.repo.git_repo.rename_root(self.project_name)
 
     async def _execute_api(
         self, user_requirement: str, output_pathname: str, legacy_prd_filename: str, extra_info: str
     ) -> str:
+        # 生成请求内容
         content = "#### User Requirements\n{user_requirement}\n#### Extra Info\n{extra_info}\n".format(
             user_requirement=to_markdown_code_block(val=user_requirement),
             extra_info=to_markdown_code_block(val=extra_info),
         )
+        # 使用 DocsReporter 进行异步报告
         async with DocsReporter(enable_llm_stream=True) as reporter:
+            # 先报告 PRD 元数据
             await reporter.async_report({"type": "prd"}, "meta")
+            # 创建新的 PRD 文档
             req = Document(content=content)
             if not legacy_prd_filename:
                 node = await self._new_prd(requirement=req.content)
                 new_prd = Document(content=node.instruct_content.model_dump_json())
             else:
+                # 读取现有 PRD 文档，并与请求文档合并
                 content = await aread(filename=legacy_prd_filename)
                 old_prd = Document(content=content)
                 new_prd = await self._merge(req=req, related_doc=old_prd)
 
+            # 设置输出文件路径
             if not output_pathname:
                 output_pathname = self.config.workspace.path / "docs" / "prd.json"
             elif not Path(output_pathname).is_absolute():
                 output_pathname = self.config.workspace.path / output_pathname
             output_pathname = rectify_pathname(path=output_pathname, default_filename="prd.json")
+            # 保存 PRD 内容到文件
             await awrite(filename=output_pathname, data=new_prd.content)
+            # 保存竞争分析结果
             competitive_analysis_filename = output_pathname.parent / f"{output_pathname.stem}-competitive-analysis"
             await self._save_competitive_analysis(prd_doc=new_prd, output_filename=Path(competitive_analysis_filename))
+            # 将 PRD 内容保存为 markdown 文件
             md_output_filename = output_pathname.with_suffix(".md")
             await save_json_to_markdown(content=new_prd.content, output_filename=md_output_filename)
+            # 报告 markdown 文件的路径
             await reporter.async_report(md_output_filename, "path")
+        # 返回生成的 PRD 文件路径信息
         return f'PRD filename: "{str(output_pathname)}". The  product requirement document (PRD) has been completed.'

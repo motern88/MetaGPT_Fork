@@ -21,13 +21,12 @@ from metagpt.utils.project_repo import ProjectRepo
 
 PROMPT_TEMPLATE = """
 NOTICE
-1. Role: You are a Development Engineer or QA engineer;
-2. Task: You received this message from another Development Engineer or QA engineer who ran or tested your code. 
-Based on the message, first, figure out your own role, i.e. Engineer or QaEngineer,
-then rewrite the development code or the test code based on your role, the error, and the summary, such that all bugs are fixed and the code performs well.
-Attention: Use '##' to split sections, not '#', and '## <SECTION_NAME>' SHOULD WRITE BEFORE the test case or script and triple quotes.
-The message is as follows:
-# Legacy Code
+1. 角色: 你是一个开发工程师或QA工程师；
+2. 任务: 你收到来自另一位开发工程师或QA工程师的消息，消息中包含他们运行或测试你的代码后的结果。根据这个消息，首先判断你自己扮演的角色，是开发工程师（Engineer）还是QA工程师（QaEngineer），
+然后根据你的角色、错误信息和总结，重写开发代码或测试代码，修复所有错误并确保代码正常工作。
+注意：使用 '##' 来分隔各部分内容，不要使用 '#'，并且 '## <SECTION_NAME>' 应该写在测试用例或脚本之前，并且用三引号包裹代码。
+以下是消息内容：
+# 旧代码
 ```python
 {code}
 ```
@@ -48,30 +47,54 @@ Now you should start rewriting the code:
 
 
 class DebugError(Action):
+    # RunCodeContext：存储与运行代码相关的上下文信息（例如文件名、执行状态等）
     i_context: RunCodeContext = Field(default_factory=RunCodeContext)
+
+    # ProjectRepo：项目仓库，包含源代码、测试代码等内容
     repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
+
+    # BaseModel：用于存储输入参数的基类
     input_args: Optional[BaseModel] = Field(default=None, exclude=True)
 
+    # 异步运行方法，执行错误调试和代码重写
     async def run(self, *args, **kwargs) -> str:
+        # 从仓库获取测试输出文档，检查是否存在输出
         output_doc = await self.repo.test_outputs.get(filename=self.i_context.output_filename)
         if not output_doc:
-            return ""
+            return ""  # 如果没有输出文档，返回空字符串
+
+        # 解析输出文档的内容
         output_detail = RunCodeResult.loads(output_doc.content)
+
+        # 使用正则表达式检查测试是否通过（即所有测试通过时显示 "OK"）
         pattern = r"Ran (\d+) tests in ([\d.]+)s\n\nOK"
         matches = re.search(pattern, output_detail.stderr)
+
+        # 如果匹配成功，说明所有测试都通过了，直接返回空字符串
         if matches:
             return ""
 
+        # 如果测试未通过，记录日志并开始调试
         logger.info(f"Debug and rewrite {self.i_context.test_filename}")
+
+        # 获取源代码文档
         code_doc = await self.repo.srcs.get(filename=self.i_context.code_filename)
         if not code_doc:
-            return ""
+            return ""  # 如果没有源代码文档，返回空字符串
+
+        # 获取测试代码文档
         test_doc = await self.repo.tests.get(filename=self.i_context.test_filename)
         if not test_doc:
-            return ""
+            return ""  # 如果没有测试代码文档，返回空字符串
+
+        # 构建提示信息，包含源代码、测试代码和控制台日志
         prompt = PROMPT_TEMPLATE.format(code=code_doc.content, test_code=test_doc.content, logs=output_detail.stderr)
 
+        # 向模型请求重写代码的建议
         rsp = await self._aask(prompt)
+
+        # 解析模型返回的重写代码
         code = CodeParser.parse_code(text=rsp)
 
+        # 返回重写后的代码
         return code

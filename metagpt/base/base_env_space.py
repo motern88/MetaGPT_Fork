@@ -8,26 +8,26 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseEnvActionType(IntEnum):
-    # # NONE = 0  # no action to run, just get observation
+    # # NONE = 0  # 无动作执行，仅获取观察值
     pass
 
 
 class BaseEnvAction(BaseModel):
-    """env action type and its related params of action functions/apis"""
+    """环境动作类型及其相关的参数，用于动作函数或 API"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    action_type: int = Field(default=0, description="action type")
+    action_type: int = Field(default=0, description="动作类型")
 
 
 class BaseEnvObsType(IntEnum):
-    # # NONE = 0                     # get whole observation from env
+    # # NONE = 0                     # 获取环境的完整观察值
     pass
 
 
 class BaseEnvObsParams(BaseModel):
-    """observation params for different EnvObsType to get its observe result"""
+    """用于获取环境观察结果的观察参数，根据不同的 EnvObsType"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    obs_type: int = Field(default=0, description="observation type")
+    obs_type: int = Field(default=0, description="观察类型")

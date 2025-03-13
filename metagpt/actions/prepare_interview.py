@@ -8,18 +8,23 @@
 from metagpt.actions import Action
 from metagpt.actions.action_node import ActionNode
 
+# 定义一个名为 QUESTIONS 的 ActionNode，用于生成面试问题
 QUESTIONS = ActionNode(
-    key="Questions",
-    expected_type=list[str],
-    instruction="""Role: You are an interviewer of our company who is well-knonwn in frontend or backend develop;
-Requirement: Provide a list of questions for the interviewer to ask the interviewee, by reading the resume of the interviewee in the context.
-Attention: Provide as markdown block as the format above, at least 10 questions.""",
-    example=["1. What ...", "2. How ..."],
+    key="Questions",  # 节点的键
+    expected_type=list[str],  # 期望的类型是字符串列表
+    instruction="""Role: 你是我们公司的一名面试官，擅长前端或后端开发；
+Requirement: 提供一组问题，供面试官根据面试者的简历提问；
+Attention: 请以 markdown 格式提供问题列表，至少包含 10 个问题。""",  # 指定的指令说明
+    example=["1. What ...", "2. How ..."],  # 示例问题
 )
 
 
 class PrepareInterview(Action):
-    name: str = "PrepareInterview"
+    """PrepareInterview 类用于准备面试问题。"""
+
+    name: str = "PrepareInterview"  # 动作的名称
 
     async def run(self, context):
+        """执行准备面试的问题生成操作。"""
+        # 使用 QUESTIONS 填充问题，传入上下文和 LLM（大语言模型）进行问题生成
         return await QUESTIONS.fill(req=context, llm=self.llm)

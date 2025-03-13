@@ -89,35 +89,47 @@ flowchart TB
 
 """
 
-
 class SummarizeCode(Action):
-    name: str = "SummarizeCode"
-    i_context: CodeSummarizeContext = Field(default_factory=CodeSummarizeContext)
-    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
-    input_args: Optional[BaseModel] = Field(default=None, exclude=True)
+    name: str = "SummarizeCode"  # 操作名称，标识该类的功能为代码总结
+    i_context: CodeSummarizeContext = Field(default_factory=CodeSummarizeContext)  # 存储代码总结的上下文信息
+    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)  # 可选，表示项目代码库的存储库
+    input_args: Optional[BaseModel] = Field(default=None, exclude=True)  # 可选，表示输入的参数模型，可能包含额外的配置
 
     @retry(stop=stop_after_attempt(2), wait=wait_random_exponential(min=1, max=60))
     async def summarize_code(self, prompt):
-        code_rsp = await self._aask(prompt)
+        # 用于总结代码的异步函数，包含重试机制
+        code_rsp = await self._aask(prompt)  # 调用模型来生成代码总结
         return code_rsp
 
     async def run(self):
+        # 运行总结代码的操作
+        # 读取系统设计文档
         design_pathname = Path(self.i_context.design_filename)
         design_doc = await self.repo.docs.system_design.get(filename=design_pathname.name)
+
+        # 读取任务描述文档
         task_pathname = Path(self.i_context.task_filename)
         task_doc = await self.repo.docs.task.get(filename=task_pathname.name)
+
+        # 收集所有代码文件并格式化为代码块
         code_blocks = []
         for filename in self.i_context.codes_filenames:
-            code_doc = await self.repo.srcs.get(filename)
+            code_doc = await self.repo.srcs.get(filename)  # 获取代码文件内容
+            # 使用 Markdown 格式化代码块
             code_block = f"```{get_markdown_code_block_type(filename)}\n{code_doc.content}\n```\n---\n"
             code_blocks.append(code_block)
+
+        # 获取示例格式化字符串
         format_example = FORMAT_EXAMPLE
+
+        # 构建最终的提示信息，包含系统设计、任务描述和代码块
         prompt = PROMPT_TEMPLATE.format(
             system_design=design_doc.content,
             task=task_doc.content,
             code_blocks="\n".join(code_blocks),
             format_example=format_example,
         )
-        logger.info("Summarize code..")
-        rsp = await self.summarize_code(prompt)
-        return rsp
+
+        logger.info("总结代码中..")  # 日志信息，标记开始总结代码
+        rsp = await self.summarize_code(prompt)  # 调用总结代码的函数
+        return rsp  # 返回总结结果

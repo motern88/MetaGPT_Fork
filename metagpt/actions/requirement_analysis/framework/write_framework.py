@@ -18,42 +18,42 @@ from metagpt.utils.common import general_after_log, to_markdown_code_block
 
 @register_tool(include_functions=["run"])
 class WriteFramework(Action):
-    """WriteFramework deal with the following situations:
-    1. Given a TRD, write out the software framework.
+    """WriteFramework 处理以下情况：
+    1. 给定 TRD（技术需求文档），生成软件框架。
     """
 
     async def run(
         self,
         *,
-        use_case_actors: str,
-        trd: str,
-        acknowledge: str,
-        legacy_output: str,
-        evaluation_conclusion: str,
-        additional_technical_requirements: str,
+        use_case_actors: str,  # 用例参与者（包括角色、系统、外部系统）
+        trd: str,  # 技术需求文档（Technical Requirements Document）
+        acknowledge: str,  # 外部系统接口信息
+        legacy_output: str,  # 之前生成的软件框架（用于增量改进）
+        evaluation_conclusion: str,  # 评估结论（用于改进软件框架）
+        additional_technical_requirements: str,  # 额外的技术要求
     ) -> str:
         """
-        Run the action to generate a software framework based on the provided TRD and related information.
+        根据提供的 TRD 和相关信息生成软件框架。
 
-        Args:
-            use_case_actors (str): Description of the use case actors involved.
-            trd (str): Technical Requirements Document detailing the requirements.
-            acknowledge (str): External acknowledgements or acknowledgements required.
-            legacy_output (str): Previous version of the software framework returned by `WriteFramework.run`.
-            evaluation_conclusion (str): Conclusion from the evaluation of the requirements.
-            additional_technical_requirements (str): Any additional technical requirements.
+        参数:
+            use_case_actors (str): 参与用例的角色描述。
+            trd (str): 技术需求文档，详细描述软件需求。
+            acknowledge (str): 需要使用的外部接口信息。
+            legacy_output (str): 之前 `WriteFramework.run` 生成的旧软件框架。
+            evaluation_conclusion (str): 需求评估后的改进建议。
+            additional_technical_requirements (str): 其他技术要求。
 
-        Returns:
-            str: The generated software framework as a string.
+        返回:
+            str: 生成的软件框架，以 JSON 格式返回文件列表。
 
-        Example:
+        示例:
             >>> write_framework = WriteFramework()
-            >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
+            >>> use_case_actors = "- Actor: game player;\\n- System: snake game;\\n- External System: game center;"
             >>> trd = "## TRD\\n..."
             >>> acknowledge = "## Interfaces\\n..."
             >>> legacy_output = '{"path":"balabala", "filename":"...", ...'
-            >>> evaluation_conclusion = "Balabala..."
-            >>> constraint = "Using Java language, ..."
+            >>> evaluation_conclusion = "需要优化模块A的结构..."
+            >>> constraint = "使用 Java 语言..."
             >>> framework = await write_framework.run(
             >>>    use_case_actors=use_case_actors,
             >>>    trd=trd,
@@ -63,10 +63,12 @@ class WriteFramework(Action):
             >>>    additional_technical_requirements=constraint,
             >>> )
             >>> print(framework)
-            {"path":"balabala", "filename":"...", ...
-
+            {"path":"balabala", "filename":"...", ...}
         """
+        # 提取 TRD 中使用的外部接口，仅保留相关部分
         acknowledge = await self._extract_external_interfaces(trd=trd, knowledge=acknowledge)
+
+        # 生成最终提示词
         prompt = PROMPT.format(
             use_case_actors=use_case_actors,
             trd=to_markdown_code_block(val=trd),
@@ -75,6 +77,8 @@ class WriteFramework(Action):
             evaluation_conclusion=evaluation_conclusion,
             additional_technical_requirements=to_markdown_code_block(val=additional_technical_requirements),
         )
+
+        # 生成软件框架
         return await self._write(prompt)
 
     @retry(
@@ -83,15 +87,22 @@ class WriteFramework(Action):
         after=general_after_log(logger),
     )
     async def _write(self, prompt: str) -> str:
+        """调用 LLM 生成软件框架"""
         rsp = await self.llm.aask(prompt)
-        # Do not use `CodeParser` here.
+
+        # 解析 JSON 格式输出
         tags = ["```json", "```"]
         bix = rsp.find(tags[0])
         eix = rsp.rfind(tags[1])
         if bix >= 0:
             rsp = rsp[bix : eix + len(tags[1])]
+
+        # 去除代码块标记，提取 JSON 数据
         json_data = rsp.removeprefix("```json").removesuffix("```")
-        json.loads(json_data)  # validate
+
+        # 验证 JSON 格式
+        json.loads(json_data)
+
         return json_data
 
     @retry(
@@ -100,17 +111,21 @@ class WriteFramework(Action):
         after=general_after_log(logger),
     )
     async def _extract_external_interfaces(self, trd: str, knowledge: str) -> str:
+        """提取 TRD 中使用的外部接口，并删除无关内容"""
         prompt = f"## TRD\n{to_markdown_code_block(val=trd)}\n\n## Knowledge\n{to_markdown_code_block(val=knowledge)}\n"
+
         rsp = await self.llm.aask(
             prompt,
             system_msgs=[
-                "You are a tool that removes impurities from articles; you can remove irrelevant content from articles.",
-                'Identify which interfaces are used in "TRD"? Remove the relevant content of the interfaces NOT used in "TRD" from "Knowledge" and return the simplified content of "Knowledge".',
+                "你是一个负责清理文章杂质的工具；你可以去除与文章无关的内容。",
+                '找出 "TRD" 中使用的接口，并从 "Knowledge" 中删除未被使用的接口，返回精简后的 "Knowledge"。',
             ],
         )
         return rsp
 
 
+
+# 生成软件框架的提示模板
 PROMPT = """
 ## Actor, System, External System
 {use_case_actors}
@@ -131,26 +146,27 @@ PROMPT = """
 {additional_technical_requirements}
 
 ---
-You are a tool that generates software framework code based on TRD.
-The content of "Actor, System, External System" provides an explanation of actors and systems that appear in UML Use Case diagram;
-The descriptions of the interfaces of the external system used in the "TRD" can be found in the "Acknowledge" section; Do not implement the interface of the external system in "Acknowledge" section until it is used in "TRD";
-"Legacy Outputs" contains the software framework code generated by you last time, which you can improve by addressing the issues raised in "Evaluation Conclusion";
-"Additional Technical Requirements" specifies the additional technical requirements that the generated software framework code must meet;
-Develop the software framework based on the "TRD", the output files should include:
-- The `README.md` file should include:
-  - The folder structure diagram of the entire project;
-  - Correspondence between classes, interfaces, and functions with the content in the "TRD" section；
-  - Prerequisites if necessary;
-  - Installation if necessary;
-  - Configuration if necessary;
-  - Usage if necessary;
-- The `CLASS.md` file should include the class diagram in PlantUML format based on the "TRD";
-- The `SEQUENCE.md` file should include the sequence diagram in PlantUML format based on the "TRD";
-- The source code files that implement the "TRD" and "Additional Technical Requirements"; do not add comments to source code files;
-- The configuration files that required by the source code files, "TRD" and "Additional Technical Requirements";
-  
-Return a markdown JSON object list, each object containing:
-- a "path" key with a value specifying its path;
-- a "filename" key with a value specifying its file name;
-- a "content" key with a value containing its file content;
+你是一个根据 TRD 生成软件框架代码的工具。
+
+- "Actor, System, External System" 说明了 UML 用例图中涉及的角色和系统；
+- "Acknowledge" 包含外部系统接口描述，仅当 "TRD" 需要时才实现；
+- "Legacy Outputs" 是上次生成的代码，可在此基础上优化；
+- "Evaluation Conclusion" 指出了需要改进的部分；
+- "Additional Technical Requirements" 规定了代码必须满足的附加技术要求。
+
+生成的框架应包括：
+- `README.md`：
+  - 项目目录结构图；
+  - 类、接口、函数与 "TRD" 之间的对应关系；
+  - 必要的前置条件；
+  - 安装、配置、使用说明；
+- `CLASS.md`：基于 "TRD" 的 PlantUML 类图；
+- `SEQUENCE.md`：基于 "TRD" 的 PlantUML 序列图；
+- 源代码文件（实现 "TRD" 和 "Additional Technical Requirements"，代码不需要注释）；
+- 必要的配置文件。
+
+返回 JSON 格式，包含：
+- `"path"`：文件路径；
+- `"filename"`：文件名；
+- `"content"`：文件内容；
 """

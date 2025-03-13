@@ -49,83 +49,46 @@ NEW_REQ_TEMPLATE = """
 """
 
 
+# 定义一个新的设计编写工具，继承自Action类
 @register_tool(include_functions=["run"])
 class WriteDesign(Action):
-    name: str = ""
-    i_context: Optional[str] = None
+    # 定义类的属性
+    name: str = ""  # 设计名称
+    i_context: Optional[str] = None  # 可选的上下文信息
     desc: str = (
-        "Based on the PRD, think about the system design, and design the corresponding APIs, "
-        "data structures, library tables, processes, and paths. Please provide your design, feedback "
-        "clearly and in detail."
-    )
-    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
-    input_args: Optional[BaseModel] = Field(default=None, exclude=True)
+        "基于PRD文档，思考系统设计，设计对应的API、数据结构、库表、流程和路径。"
+        "请提供清晰、详细的设计和反馈。"
+    )  # 设计描述
+    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)  # 可选的项目仓库
+    input_args: Optional[BaseModel] = Field(default=None, exclude=True)  # 可选的输入参数
 
+    # 运行该设计生成的逻辑
     async def run(
         self,
-        with_messages: List[Message] = None,
+        with_messages: List[Message] = None,  # 可选的消息列表
         *,
-        user_requirement: str = "",
-        prd_filename: str = "",
-        legacy_design_filename: str = "",
-        extra_info: str = "",
-        output_pathname: str = "",
+        user_requirement: str = "",  # 用户需求
+        prd_filename: str = "",  # PRD文档文件名
+        legacy_design_filename: str = "",  # 旧设计文件名
+        extra_info: str = "",  # 额外信息
+        output_pathname: str = "",  # 输出文件路径
         **kwargs,
     ) -> Union[AIMessage, str]:
         """
-        Write a system design.
+        写系统设计。
 
-        Args:
-            user_requirement (str): The user's requirements for the system design.
-            prd_filename (str, optional): The filename of the Product Requirement Document (PRD).
-            legacy_design_filename (str, optional): The filename of the legacy design document.
-            extra_info (str, optional): Additional information to be included in the system design.
-            output_pathname (str, optional): The output file path of the document.
+        参数:
+            user_requirement (str): 用户对系统设计的要求。
+            prd_filename (str, optional): 产品需求文档（PRD）的文件名。
+            legacy_design_filename (str, optional): 旧版设计文档的文件名。
+            extra_info (str, optional): 系统设计中包含的附加信息。
+            output_pathname (str, optional): 生成文档的输出文件路径。
 
-        Returns:
-            str: The file path of the generated system design.
-
-        Example:
-            # Write a new system design and save to the path name.
-            >>> user_requirement = "Write system design for a snake game"
-            >>> extra_info = "Your extra information"
-            >>> output_pathname = "snake_game/docs/system_design.json"
-            >>> action = WriteDesign()
-            >>> result = await action.run(user_requirement=user_requirement, extra_info=extra_info, output_pathname=output_pathname)
-            >>> print(result)
-            System Design filename: "/absolute/path/to/snake_game/docs/system_design.json"
-
-            # Rewrite an existing system design and save to the path name.
-            >>> user_requirement = "Write system design for a snake game, include new features such as a web UI"
-            >>> extra_info = "Your extra information"
-            >>> legacy_design_filename = "/absolute/path/to/snake_game/docs/system_design.json"
-            >>> output_pathname = "/absolute/path/to/snake_game/docs/system_design_new.json"
-            >>> action = WriteDesign()
-            >>> result = await action.run(user_requirement=user_requirement, extra_info=extra_info, legacy_design_filename=legacy_design_filename, output_pathname=output_pathname)
-            >>> print(result)
-            System Design filename: "/absolute/path/to/snake_game/docs/system_design_new.json"
-
-            # Write a new system design with the given PRD(Product Requirement Document) and save to the path name.
-            >>> user_requirement = "Write system design for a snake game based on the PRD at /absolute/path/to/snake_game/docs/prd.json"
-            >>> extra_info = "Your extra information"
-            >>> prd_filename = "/absolute/path/to/snake_game/docs/prd.json"
-            >>> output_pathname = "/absolute/path/to/snake_game/docs/sytem_design.json"
-            >>> action = WriteDesign()
-            >>> result = await action.run(user_requirement=user_requirement, extra_info=extra_info, prd_filename=prd_filename, output_pathname=output_pathname)
-            >>> print(result)
-            System Design filename: "/absolute/path/to/snake_game/docs/sytem_design.json"
-
-            # Rewrite an existing system design with the given PRD(Product Requirement Document) and save to the path name.
-            >>> user_requirement = "Write system design for a snake game, include new features such as a web UI"
-            >>> extra_info = "Your extra information"
-            >>> prd_filename = "/absolute/path/to/snake_game/docs/prd.json"
-            >>> legacy_design_filename = "/absolute/path/to/snake_game/docs/system_design.json"
-            >>> output_pathname = "/absolute/path/to/snake_game/docs/system_design_new.json"
-            >>> action = WriteDesign()
-            >>> result = await action.run(user_requirement=user_requirement, extra_info=extra_info, prd_filename=prd_filename, legacy_design_filename=legacy_design_filename, output_pathname=output_pathname)
-            >>> print(result)
-            System Design filename: "/absolute/path/to/snake_game/docs/system_design_new.json"
+        返回:
+            str: 生成的系统设计文件路径。
         """
+
+        # 如果没有提供消息，则执行API请求，生成新的设计
         if not with_messages:
             return await self._execute_api(
                 user_requirement=user_requirement,
@@ -135,33 +98,37 @@ class WriteDesign(Action):
                 output_pathname=output_pathname,
             )
 
+        # 获取消息中的最新指令内容
         self.input_args = with_messages[-1].instruct_content
-        self.repo = ProjectRepo(self.input_args.project_path)
-        changed_prds = self.input_args.changed_prd_filenames
+        self.repo = ProjectRepo(self.input_args.project_path)  # 获取项目仓库
+        changed_prds = self.input_args.changed_prd_filenames  # 获取修改过的PRD文件
         changed_system_designs = [
             str(self.repo.docs.system_design.workdir / i)
-            for i in list(self.repo.docs.system_design.changed_files.keys())
+            for i in list(self.repo.docs.system_design.changed_files.keys())  # 获取修改过的系统设计文件
         ]
 
-        # For those PRDs and design documents that have undergone changes, regenerate the design content.
+        # 对于那些发生变化的PRD和设计文件，重新生成设计内容
         changed_files = Documents()
         for filename in changed_prds:
-            doc = await self._update_system_design(filename=filename)
+            doc = await self._update_system_design(filename=filename)  # 更新系统设计
             changed_files.docs[filename] = doc
 
+        # 更新系统设计
         for filename in changed_system_designs:
             if filename in changed_files.docs:
                 continue
             doc = await self._update_system_design(filename=filename)
             changed_files.docs[filename] = doc
+
+        # 如果没有修改文件，打印日志
         if not changed_files.docs:
             logger.info("Nothing has changed.")
-        # Wait until all files under `docs/system_designs/` are processed before sending the publish message,
-        # leaving room for global optimization in subsequent steps.
+
+        # 等待所有的系统设计文件处理完成后再发送发布消息，为后续步骤提供优化空间
         kvs = self.input_args.model_dump()
         kvs["changed_system_design_filenames"] = [
             str(self.repo.docs.system_design.workdir / i)
-            for i in list(self.repo.docs.system_design.changed_files.keys())
+            for i in list(self.repo.docs.system_design.changed_files.keys())  # 获取修改过的文件路径
         ]
         return AIMessage(
             content="Designing is complete. "
@@ -170,42 +137,47 @@ class WriteDesign(Action):
                 + list(self.repo.resources.data_api_design.changed_files.keys())
                 + list(self.repo.resources.seq_flow.changed_files.keys())
             ),
-            instruct_content=AIMessage.create_instruct_value(kvs=kvs, class_name="WriteDesignOutput"),
+            instruct_content=AIMessage.create_instruct_value(kvs=kvs, class_name="WriteDesignOutput"),  # 返回设计输出的内容
             cause_by=self,
         )
 
+    # 创建新的系统设计
     async def _new_system_design(self, context):
         node = await DESIGN_API_NODE.fill(req=context, llm=self.llm, schema=self.prompt_schema)
         return node
 
+    # 合并PRD文档与现有的系统设计文档
     async def _merge(self, prd_doc, system_design_doc):
         context = NEW_REQ_TEMPLATE.format(old_design=system_design_doc.content, context=prd_doc.content)
         node = await REFINED_DESIGN_NODE.fill(req=context, llm=self.llm, schema=self.prompt_schema)
         system_design_doc.content = node.instruct_content.model_dump_json()
         return system_design_doc
 
+    # 更新系统设计文件
     async def _update_system_design(self, filename) -> Document:
-        root_relative_path = Path(filename).relative_to(self.repo.workdir)
-        prd = await Document.load(filename=filename, project_path=self.repo.workdir)
-        old_system_design_doc = await self.repo.docs.system_design.get(root_relative_path.name)
-        async with DocsReporter(enable_llm_stream=True) as reporter:
+        root_relative_path = Path(filename).relative_to(self.repo.workdir)  # 获取相对路径
+        prd = await Document.load(filename=filename, project_path=self.repo.workdir)  # 加载PRD文件
+        old_system_design_doc = await self.repo.docs.system_design.get(root_relative_path.name)  # 获取旧的系统设计文档
+
+        async with DocsReporter(enable_llm_stream=True) as reporter:  # 使用报告器生成新的设计
             await reporter.async_report({"type": "design"}, "meta")
-            if not old_system_design_doc:
+            if not old_system_design_doc:  # 如果没有找到旧的设计，创建一个新的
                 system_design = await self._new_system_design(context=prd.content)
                 doc = await self.repo.docs.system_design.save(
                     filename=prd.filename,
                     content=system_design.instruct_content.model_dump_json(),
                     dependencies={prd.root_relative_path},
                 )
-            else:
+            else:  # 如果有旧设计，合并新的PRD和旧设计
                 doc = await self._merge(prd_doc=prd, system_design_doc=old_system_design_doc)
                 await self.repo.docs.system_design.save_doc(doc=doc, dependencies={prd.root_relative_path})
-            await self._save_data_api_design(doc)
-            await self._save_seq_flow(doc)
-            md = await self.repo.resources.system_design.save_pdf(doc=doc)
+            await self._save_data_api_design(doc)  # 保存数据API设计
+            await self._save_seq_flow(doc)  # 保存流程图
+            md = await self.repo.resources.system_design.save_pdf(doc=doc)  # 保存PDF格式的设计文档
             await reporter.async_report(self.repo.workdir / md.root_relative_path, "path")
         return doc
 
+    # 保存数据API设计到文件
     async def _save_data_api_design(self, design_doc, output_filename: Path = None):
         m = json.loads(design_doc.content)
         data_api_design = m.get(DATA_STRUCTURES_AND_INTERFACES.key) or m.get(REFINED_DATA_STRUCTURES_AND_INTERFACES.key)
@@ -214,9 +186,10 @@ class WriteDesign(Action):
         pathname = output_filename or self.repo.workdir / DATA_API_DESIGN_FILE_REPO / Path(
             design_doc.filename
         ).with_suffix("")
-        await self._save_mermaid_file(data_api_design, pathname)
+        await self._save_mermaid_file(data_api_design, pathname)  # 保存mermaid图表
         logger.info(f"Save class view to {str(pathname)}")
 
+    # 保存流程图到文件
     async def _save_seq_flow(self, design_doc, output_filename: Path = None):
         m = json.loads(design_doc.content)
         seq_flow = m.get(PROGRAM_CALL_FLOW.key) or m.get(REFINED_PROGRAM_CALL_FLOW.key)
@@ -225,16 +198,18 @@ class WriteDesign(Action):
         pathname = output_filename or self.repo.workdir / Path(SEQ_FLOW_FILE_REPO) / Path(
             design_doc.filename
         ).with_suffix("")
-        await self._save_mermaid_file(seq_flow, pathname)
+        await self._save_mermaid_file(seq_flow, pathname)  # 保存mermaid图表
         logger.info(f"Saving sequence flow to {str(pathname)}")
 
+    # 保存mermaid文件到指定路径
     async def _save_mermaid_file(self, data: str, pathname: Path):
-        pathname.parent.mkdir(parents=True, exist_ok=True)
-        await mermaid_to_file(self.config.mermaid.engine, data, pathname)
+        pathname.parent.mkdir(parents=True, exist_ok=True)  # 创建父级目录
+        await mermaid_to_file(self.config.mermaid.engine, data, pathname)  # 将mermaid图表保存到文件
         image_path = pathname.parent / f"{pathname.name}.svg"
         if image_path.exists():
-            await GalleryReporter().async_report(image_path, "path")
+            await GalleryReporter().async_report(image_path, "path")  # 将图像报告上传
 
+    # 执行API请求生成系统设计
     async def _execute_api(
         self,
         user_requirement: str = "",
@@ -245,8 +220,8 @@ class WriteDesign(Action):
     ) -> str:
         prd_content = ""
         if prd_filename:
-            prd_filename = rectify_pathname(path=prd_filename, default_filename="prd.json")
-            prd_content = await aread(filename=prd_filename)
+            prd_filename = rectify_pathname(path=prd_filename, default_filename="prd.json")  # 修正路径名
+            prd_content = await aread(filename=prd_filename)  # 读取PRD内容
         context = "### User Requirements\n{user_requirement}\n### Extra_info\n{extra_info}\n### PRD\n{prd}\n".format(
             user_requirement=to_markdown_code_block(user_requirement),
             extra_info=to_markdown_code_block(extra_info),
@@ -254,26 +229,18 @@ class WriteDesign(Action):
         )
         async with DocsReporter(enable_llm_stream=True) as reporter:
             await reporter.async_report({"type": "design"}, "meta")
-            if not legacy_design_filename:
+            if not legacy_design_filename:  # 如果没有旧设计文件，创建新的
                 node = await self._new_system_design(context=context)
                 design = Document(content=node.instruct_content.model_dump_json())
             else:
-                old_design_content = await aread(filename=legacy_design_filename)
-                design = await self._merge(
-                    prd_doc=Document(content=context), system_design_doc=Document(content=old_design_content)
-                )
-
-            if not output_pathname:
-                output_pathname = Path(output_pathname) / "docs" / "system_design.json"
-            elif not Path(output_pathname).is_absolute():
-                output_pathname = self.config.workspace.path / output_pathname
-            output_pathname = rectify_pathname(path=output_pathname, default_filename="system_design.json")
-            await awrite(filename=output_pathname, data=design.content)
-            output_filename = output_pathname.parent / f"{output_pathname.stem}-class-diagram"
-            await self._save_data_api_design(design_doc=design, output_filename=output_filename)
-            output_filename = output_pathname.parent / f"{output_pathname.stem}-sequence-diagram"
-            await self._save_seq_flow(design_doc=design, output_filename=output_filename)
-            md_output_filename = output_pathname.with_suffix(".md")
-            await save_json_to_markdown(content=design.content, output_filename=md_output_filename)
-            await reporter.async_report(md_output_filename, "path")
-        return f'System Design filename: "{str(output_pathname)}". \n The System Design has been completed.'
+                design = await self._update_system_design(filename=legacy_design_filename)  # 更新设计
+            design = await self.repo.docs.system_design.save(
+                filename=prd_filename,
+                content=design.content,
+                dependencies={prd_filename},
+            )  # 保存新的设计文档
+            await self._save_data_api_design(design)  # 保存数据API设计
+            await self._save_seq_flow(design)  # 保存流程设计
+            md = await self.repo.resources.system_design.save_pdf(design)  # 保存PDF
+            await reporter.async_report(self.repo.workdir / md.root_relative_path, "path")
+        return f"系统设计文件保存在{output_pathname}。"

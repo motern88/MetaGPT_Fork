@@ -17,11 +17,11 @@ from metagpt.utils.common import CodeParser, general_after_log, to_markdown_code
 
 
 class EvaluationData(BaseModel):
-    """Model to represent evaluation data.
+    """表示评估数据的模型。
 
-    Attributes:
-        is_pass (bool): Indicates if the evaluation passed or failed.
-        conclusion (Optional[str]): Conclusion or remarks about the evaluation.
+    属性:
+        is_pass (bool): 表示评估是否通过。
+        conclusion (Optional[str]): 评估的结论或备注。
     """
 
     is_pass: bool
@@ -29,46 +29,46 @@ class EvaluationData(BaseModel):
 
 
 class EvaluateAction(Action):
-    """The base class for an evaluation action.
+    """评估操作的基类。
 
-    This class provides methods to evaluate prompts using a specified language model.
+    该类提供了使用指定语言模型评估提示的方法。
     """
 
     @retry(
-        wait=wait_random_exponential(min=1, max=20),
-        stop=stop_after_attempt(6),
-        after=general_after_log(logger),
+        wait=wait_random_exponential(min=1, max=20),  # 等待时间的指数回退
+        stop=stop_after_attempt(6),  # 最多重试6次
+        after=general_after_log(logger),  # 每次重试后进行日志记录
     )
     async def _evaluate(self, prompt: str) -> (bool, str):
-        """Evaluates a given prompt.
+        """评估给定的提示。
 
-        Args:
-            prompt (str): The prompt to be evaluated.
+        参数:
+            prompt (str): 要评估的提示。
 
-        Returns:
-            tuple: A tuple containing:
-                - bool: Indicates if the evaluation passed.
-                - str: The JSON string containing the evaluation data.
+        返回:
+            tuple: 包含两个元素的元组：
+                - bool: 表示评估是否通过。
+                - str: 包含评估数据的 JSON 字符串。
         """
-        rsp = await self.llm.aask(prompt)
-        json_data = CodeParser.parse_code(text=rsp, lang="json")
-        data = EvaluationData.model_validate_json(json_data)
-        return data.is_pass, to_markdown_code_block(val=json_data, type_="json")
+        rsp = await self.llm.aask(prompt)  # 使用语言模型进行评估
+        json_data = CodeParser.parse_code(text=rsp, lang="json")  # 解析返回的 JSON 数据
+        data = EvaluationData.model_validate_json(json_data)  # 验证并创建 EvaluationData 实例
+        return data.is_pass, to_markdown_code_block(val=json_data, type_="json")  # 返回评估结果
 
     async def _vote(self, prompt: str) -> EvaluationData:
-        """Evaluates a prompt multiple times and returns the consensus.
+        """多次评估提示并返回评估结果的一致性。
 
-        Args:
-            prompt (str): The prompt to be evaluated.
+        参数:
+            prompt (str): 要评估的提示。
 
-        Returns:
-            EvaluationData: An object containing the evaluation result and a summary of evaluations.
+        返回:
+            EvaluationData: 包含评估结果和评估摘要的对象。
         """
-        evaluations = {}
-        for i in range(3):
-            vote, evaluation = await self._evaluate(prompt)
-            val = evaluations.get(vote, [])
-            val.append(evaluation)
-            if len(val) > 1:
-                return EvaluationData(is_pass=vote, conclusion="\n".join(val))
-            evaluations[vote] = val
+        evaluations = {}  # 存储每次评估的结果
+        for i in range(3):  # 执行3次评估
+            vote, evaluation = await self._evaluate(prompt)  # 获取每次评估的结果
+            val = evaluations.get(vote, [])  # 获取当前评估结果的列表
+            val.append(evaluation)  # 添加评估内容
+            if len(val) > 1:  # 如果有超过一个结果，则返回最终结果
+                return EvaluationData(is_pass=vote, conclusion="\n".join(val))  # 返回包含多个评估结果的结论
+            evaluations[vote] = val  # 将当前评估结果存储到字典中

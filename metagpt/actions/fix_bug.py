@@ -8,6 +8,6 @@ from metagpt.actions import Action
 
 
 class FixBug(Action):
-    """Fix bug action without any implementation details"""
+    """修复 bug 的动作类，没有任何实现细节"""
 
-    name: str = "FixBug"
+    name: str = "FixBug"  # 动作名称为 "FixBug"
