@@ -12,39 +12,40 @@ from metagpt.roles.di.role_zero import RoleZero
 
 class ProjectManager(RoleZero):
     """
-    Represents a Project Manager role responsible for overseeing project execution and team efficiency.
+    表示项目经理角色，负责监督项目执行和团队效率。
 
-    Attributes:
-        name (str): Name of the project manager.
-        profile (str): Role profile, default is 'Project Manager'.
-        goal (str): Goal of the project manager.
-        constraints (str): Constraints or limitations for the project manager.
+    属性：
+        name (str): 项目经理的名字。
+        profile (str): 角色简介，默认为 '项目经理'。
+        goal (str): 项目经理的目标。
+        constraints (str): 项目经理的约束或限制。
     """
 
-    name: str = "Eve"
-    profile: str = "Project Manager"
+    name: str = "Eve"  # 项目经理的名字
+    profile: str = "Project Manager"  # 角色简介
     goal: str = (
-        "break down tasks according to PRD/technical design, generate a task list, and analyze task "
-        "dependencies to start with the prerequisite modules"
-    )
-    constraints: str = "use same language as user requirement"
+        "根据产品需求文档（PRD）/技术设计分解任务，生成任务列表，并分析任务依赖关系，"
+        "从先决模块开始执行"
+    )  # 项目经理的目标
+    constraints: str = "使用与用户需求相同的语言"  # 角色约束
 
-    instruction: str = """Use WriteTasks tool to write a project task list"""
-    max_react_loop: int = 1  # FIXME: Read and edit files requires more steps, consider later
-    tools: list[str] = ["Editor:write,read,similarity_search", "RoleZero", "WriteTasks"]
+    instruction: str = """使用 WriteTasks 工具编写项目任务列表"""  # 使用 WriteTasks 工具编写任务列表
+    max_react_loop: int = 1  # FIXME: 读取和编辑文件需要更多步骤，稍后考虑
+    tools: list[str] = ["Editor:write,read,similarity_search", "RoleZero", "WriteTasks"]  # 项目经理可用的工具
 
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        # NOTE: The following init setting will only be effective when self.use_fixed_sop is changed to True
-        self.enable_memory = False
-        self.set_actions([WriteTasks])
-        self._watch([WriteDesign])
+        super().__init__(**kwargs)  # 调用父类初始化
+        # NOTE: 以下初始化设置仅在 self.use_fixed_sop 设置为 True 时生效
+        self.enable_memory = False  # 禁用记忆功能
+        self.set_actions([WriteTasks])  # 设置项目经理的行动为编写任务列表
+        self._watch([WriteDesign])  # 监视写设计文档的操作
 
     def _update_tool_execution(self):
-        wt = WriteTasks()
+        wt = WriteTasks()  # 创建 WriteTasks 实例
+        # 更新工具执行映射，指定 WriteTasks 工具的运行方法
         self.tool_execution_map.update(
             {
-                "WriteTasks.run": wt.run,
-                "WriteTasks": wt.run,  # alias
+                "WriteTasks.run": wt.run,  # 将 WriteTasks 的 run 方法映射为工具执行方法
+                "WriteTasks": wt.run,  # 别名，映射为相同的方法
             }
         )

@@ -7,21 +7,25 @@
 """
 from enum import Enum
 
-PREFIX = """Answer the questions to the best of your ability. You can use the following tools:"""
-FORMAT_INSTRUCTIONS = """Please follow the format below:
+# 提示的前缀
+PREFIX = """回答问题时，请尽最大努力提供最好的答案。你可以使用以下工具："""
 
-Question: The input question you need to answer
-Thoughts: You should always think about how to do it
-Action: The action to be taken, should be one from [{tool_names}]
-Action Input: Input for the action
-Observation: Result of the action
-... (This Thoughts/Action/Action Input/Observation can be repeated N times)
-Thoughts: I now know the final answer
-Final Answer: The final answer to the original input question"""
-SUFFIX = """Let's begin!
+# 格式化说明
+FORMAT_INSTRUCTIONS = """请遵循以下格式：
 
-Question: {input}
-Thoughts: {agent_scratchpad}"""
+问题: 你需要回答的问题
+思考: 你应该总是思考如何完成任务
+行动: 应采取的行动，应该从 [{tool_names}] 中选择一个
+行动输入: 行动的输入
+观察结果: 行动的结果
+... (这个 思考/行动/行动输入/观察结果 可以重复 N 次)
+思考: 我现在知道最终的答案了
+最终答案: 对原始问题的最终回答"""
+
+SUFFIX = """让我们开始！
+
+问题: {input}
+思考: {agent_scratchpad}"""
 
 
 class PromptString(Enum):

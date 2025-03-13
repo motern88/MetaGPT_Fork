@@ -14,72 +14,104 @@ from metagpt.prompts.task_type import (
 
 
 class TaskTypeDef(BaseModel):
-    name: str
-    desc: str = ""
-    guidance: str = ""
+    # 任务类型的定义类，包含任务名称、描述和指导信息
+    name: str  # 任务名称
+    desc: str = ""  # 任务描述，默认值为空字符串
+    guidance: str = ""  # 任务指导信息，默认值为空字符串
 
 
 class TaskType(Enum):
-    """By identifying specific types of tasks, we can inject human priors (guidance) to help task solving"""
+    """通过识别特定类型的任务，我们可以注入人为先验知识（指导信息）来帮助任务解决"""
 
+    # 任务类型：EDA（探索性数据分析）
     EDA = TaskTypeDef(
         name="eda",
-        desc="For performing exploratory data analysis",
+        desc="用于执行探索性数据分析",
         guidance=EDA_PROMPT,
     )
+
+    # 任务类型：数据预处理
     DATA_PREPROCESS = TaskTypeDef(
         name="data preprocessing",
-        desc="For preprocessing dataset in a data analysis or machine learning task ONLY,"
-        "general data operation doesn't fall into this type",
+        desc="仅用于在数据分析或机器学习任务中进行数据预处理，"
+             "一般的数据操作不属于此类型",
         guidance=DATA_PREPROCESS_PROMPT,
     )
+
+    # 任务类型：特征工程
     FEATURE_ENGINEERING = TaskTypeDef(
         name="feature engineering",
-        desc="Only for creating new columns for input data.",
+        desc="仅用于为输入数据创建新的列",
         guidance=FEATURE_ENGINEERING_PROMPT,
     )
+
+    # 任务类型：模型训练
     MODEL_TRAIN = TaskTypeDef(
         name="model train",
-        desc="Only for training model.",
+        desc="仅用于训练模型",
         guidance=MODEL_TRAIN_PROMPT,
     )
+
+    # 任务类型：模型评估
     MODEL_EVALUATE = TaskTypeDef(
         name="model evaluate",
-        desc="Only for evaluating model.",
+        desc="仅用于评估模型",
         guidance=MODEL_EVALUATE_PROMPT,
     )
+
+    # 任务类型：图像转网页代码
     IMAGE2WEBPAGE = TaskTypeDef(
         name="image2webpage",
-        desc="For converting image into webpage code.",
+        desc="用于将图像转换为网页代码",
         guidance=IMAGE2WEBPAGE_PROMPT,
     )
-    OTHER = TaskTypeDef(name="other", desc="Any tasks not in the defined categories")
 
-    # Legacy TaskType to support tool recommendation using type match. You don't need to define task types if you have no human priors to inject.
+    # 其他类型任务
+    OTHER = TaskTypeDef(name="other", desc="任何不在定义类别中的任务")
+
+    # 兼容旧版 TaskType 以支持工具推荐（基于类型匹配）
+    # 如果没有人为先验知识需要注入，可以不定义任务类型
+
+    # 任务类型：文本转图像
     TEXT2IMAGE = TaskTypeDef(
         name="text2image",
-        desc="Related to text2image, image2image using stable diffusion model.",
+        desc="与 Stable Diffusion 模型相关的文本转图像、图像转图像任务",
     )
+
+    # 任务类型：网页数据爬取
     WEBSCRAPING = TaskTypeDef(
         name="web scraping",
-        desc="For scraping data from web pages.",
+        desc="用于从网页爬取数据",
         guidance=WEB_SCRAPING_PROMPT,
     )
+
+    # 任务类型：邮箱登录
     EMAIL_LOGIN = TaskTypeDef(
         name="email login",
-        desc="For logging to an email.",
+        desc="用于登录电子邮件",
     )
+
+    # 任务类型：软件开发
     DEVELOP_SOFTWARE = TaskTypeDef(
         name="develop software",
-        desc="SOP related to develop software such as Writes a PRD, Writes a design, Writes a project plan and Writes code to implement designed features according to the project plan",
+        desc="与软件开发相关的标准操作流程（SOP），如撰写 PRD、设计文档、项目计划、编写代码等",
     )
 
     @property
     def type_name(self):
+        """获取任务类型的名称"""
         return self.value.name
 
     @classmethod
     def get_type(cls, type_name):
+        """根据类型名称获取对应的任务类型定义
+
+        参数：
+            type_name (str): 任务类型名称
+
+        返回：
+            TaskTypeDef: 对应的任务类型定义，如果未找到则返回 None
+        """
         for member in cls:
             if member.type_name == type_name:
                 return member.value

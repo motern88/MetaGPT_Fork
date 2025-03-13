@@ -39,45 +39,40 @@ class ThoughtSolverBase(BaseModel):
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-        self.llm.use_system_prompt = False
+        self.llm.use_system_prompt = False  # 关闭 LLM 的系统提示
 
     async def solve(self, init_prompt):
         """
-        Solve method for subclasses to implement.
+        解决问题的方法，子类必须实现。
         """
         raise NotImplementedError("Subclasses must implement the solve method")
 
     async def generate_thoughts(self, current_state="", current_node=None) -> List[ThoughtNode]:
         """
-        Generate children thoughts based on the current state.
+        生成思维节点（子节点）。
 
-        Args:
-            current_state (str): The current state for which thoughts are generated.
-            current_node (ThoughtNode): The current node in the thought tree.
+        参数：
+            current_state (str): 当前状态。
+            current_node (ThoughtNode): 当前思维树中的节点。
 
-        Returns:
-            List[ThoughtNode]: List of nodes representing the generated thoughts.
+        返回：
+            List[ThoughtNode]: 生成的思维节点列表。
         """
         state_prompt = self.config.parser.propose(
             current_state=current_state, **{"n_generate_sample": self.config.n_generate_sample}
         )
         rsp = await self.llm.aask(msg=state_prompt + "\n" + OUTPUT_FORMAT)
         thoughts = CodeParser.parse_code(text=rsp)
-        thoughts = eval(thoughts)
-        # fixme 避免不跟随，生成过多nodes
-        # valid_thoughts = [_node for idx, _node in enumerate(thoughts) if idx < self.n_generate_sample]
+        thoughts = eval(thoughts)  # 解析 LLM 生成的代码
         return self.thought_tree.update_node(thoughts, current_node=current_node)
 
     async def evaluate_node(self, node, parent_value) -> None:
         """
-        Evaluate a node and update its status and value.
+        评估节点，更新其状态和值。
 
-        Args:
-            node (ThoughtNode): The node to be evaluated.
-            parent_value (float): The parent node's value.
-
-        Returns:
-            None
+        参数：
+            node (ThoughtNode): 需要评估的节点。
+            parent_value (float): 父节点的值。
         """
         eval_prompt = self.config.parser.value(input=node.name, **{"node_id": node.id})
         evaluation = await self.llm.aask(msg=eval_prompt)
@@ -86,20 +81,18 @@ class ThoughtSolverBase(BaseModel):
         status = self.config.evaluator.status_verify(value)
 
         node.update_valid_status(status=status)
-        # 累计分数
-        node.update_value(parent_value + value)
+        node.update_value(parent_value + value)  # 更新节点值
 
     def select_nodes(self, thought_nodes: List[ThoughtNode]) -> List[ThoughtNode]:
         """
-        Select nodes based on the configured selection method.
+        选择合适的思维节点。
 
-        Args:
-            thought_nodes (List[ThoughtNode]): List of nodes to be selected.
+        参数：
+            thought_nodes (List[ThoughtNode]): 待选择的节点列表。
 
-        Returns:
-            List[ThoughtNode]: List of selected nodes.
+        返回：
+            List[ThoughtNode]: 选择的节点。
         """
-        # nodes to be selected
         nodes = []
         if self.config.method_select == MethodSelect.SAMPLE:
             raise NotImplementedError
@@ -107,16 +100,15 @@ class ThoughtSolverBase(BaseModel):
             nodes = sorted(thought_nodes, key=lambda x: x.value, reverse=True)[: self.config.n_select_sample]
         for node in thought_nodes:
             if node not in nodes:
-                node.parent = None  # 从树中删除节点
+                node.parent = None  # 移除未选择的节点
         return nodes
 
     def update_solution(self):
         """
-        Select the result with the highest score.
+        选择最高分的思维路径。
 
-        Returns:
-            - List[ThoughtNode]: List of nodes representing the best solution.
-            - List[str]: List of node names forming the best solution path.
+        返回：
+            Tuple[List[ThoughtNode], List[str]]: 最优解的思维路径及节点。
         """
         best_node = max(self.thought_tree.all_nodes, key=lambda x: x.value, default=None)
         best_solution_path = self.thought_tree.parse_node_path(best_node)
@@ -126,13 +118,13 @@ class ThoughtSolverBase(BaseModel):
 class BFSSolver(ThoughtSolverBase):
     async def solve(self, init_prompt=""):
         """
-        Solve the problem using Breadth-First Search (BFS) strategy.
+        使用 BFS 解决问题。
 
-        Args:
-            init_prompt (str): The initial prompt for the solver.
+        参数:
+            init_prompt (str): 初始提示词。
 
-        Returns:
-            List[str]: The best solution path obtained through BFS.
+        返回:
+            List[str]: 通过 BFS 得到的最佳解决方案路径。
         """
         root = ThoughtNode(init_prompt)
         self.thought_tree = ThoughtTree(root)
@@ -146,18 +138,18 @@ class BFSSolver(ThoughtSolverBase):
             self.thought_tree.show()
 
         best_solution, best_solution_path = self.update_solution()
-        logger.info(f"best solution is: {best_solution_path}")
+        logger.info(f"最佳解决方案: {best_solution_path}")
         return best_solution_path
 
     async def _bfs_build(self, current_nodes):
         """
-        Build the thought tree using Breadth-First Search (BFS) strategy.
+        通过 BFS 方式构建思维树。
 
-        Args:
-            current_nodes (List[ThoughtNode]): Current nodes to expand.
+        参数:
+            current_nodes (List[ThoughtNode]): 需要扩展的当前节点。
 
-        Returns:
-            List[ThoughtNode]: The solutions obtained after expanding the current nodes.
+        返回:
+            List[ThoughtNode]: 经过扩展后得到的解决方案节点。
         """
         tasks = []
         for node in current_nodes:
@@ -169,24 +161,30 @@ class BFSSolver(ThoughtSolverBase):
         solutions = [child_node for thought_nodes in thought_nodes_list for child_node in thought_nodes]
         return solutions
 
-    async def generate_and_evaluate_nodes(self, current_state, current_value, node):
-        thought_nodes = await self.generate_thoughts(current_state, current_node=node)
-        await asyncio.gather(
-            *(self.evaluate_node(child_node, parent_value=current_value) for child_node in thought_nodes)
-        )
-        return thought_nodes
-
 
 class DFSSolver(ThoughtSolverBase):
+    async def solve(self, init_prompt=""):
+        """
+        使用深度优先搜索（DFS）求解问题。
+        """
+        root = ThoughtNode(init_prompt)
+        self.thought_tree = ThoughtTree(root)
+        for _ in range(self.config.n_solution_sample):
+            await self._dfs(root)
+
+        best_solution, best_solution_path = self.update_solution()
+        logger.info(f"最佳解决方案：{best_solution_path}")
+        return best_solution_path
+
     async def _dfs(self, root_node):
         """
-        Perform Depth-First Search (DFS) on the thought tree.
+        使用 DFS 方式遍历思维树。
 
-        Args:
-            root_node (ThoughtNode): The root node of the thought tree.
+        参数:
+            root_node (ThoughtNode): 思维树的根节点。
 
-        Returns:
-            List[str]: The solution path obtained through DFS.
+        返回:
+            List[str]: 通过 DFS 得到的解决方案路径。
         """
         impossible_state_cnt = 0
         node = root_node
@@ -198,47 +196,28 @@ class DFSSolver(ThoughtSolverBase):
             if thought_nodes[0].valid_status is False:
                 impossible_state_cnt += 1
             if impossible_state_cnt >= 2:
-                logger.info("impossible state reached, break")
+                logger.info("已达到不可行状态，终止")
                 break
             node = thought_nodes[0]
         _solution_path = self.thought_tree.parse_node_path(node)
         self.thought_tree.show()
-
         return _solution_path
 
-    async def solve(self, init_prompt="", root=ThoughtNode("")):
-        """
-        Solve the problem using Depth-First Search (DFS) strategy.
 
-        Args:
-            init_prompt (str): The initial prompt for the solver.
-
-        Returns:
-            List[str]: The best solution path obtained through DFS.
-        """
-        root = ThoughtNode(init_prompt)
-        self.thought_tree = ThoughtTree(root)
-        for n in range(self.config.n_solution_sample):
-            # fixme: 需要产生回退，当前节点不可用时回退到父节点，产生新的节点继续探索
-            await self._dfs(root)
-
-        best_solution, best_solution_path = self.update_solution()
-        logger.info(f"best solution is: {best_solution_path}")
-        return best_solution_path
-
-
+# MCTS（蒙特卡洛树搜索）求解器
 class MCTSSolver(ThoughtSolverBase):
     async def solve(self, init_prompt=""):
         raise NotImplementedError
 
 
+# 思维树求解器
 class TreeofThought(BaseModel):
     config: ThoughtSolverConfig = Field(default_factory=ThoughtSolverConfig)
     solver: ThoughtSolverBase = Field(default_factory=ThoughtSolverBase)
     strategy: Strategy = Field(default=Strategy.BFS)
 
     class Config:
-        arbitrary_types_allowed = True
+        arbitrary_types_allowed = True  # 允许任意类型字段
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
@@ -246,13 +225,13 @@ class TreeofThought(BaseModel):
 
     def _initialize_solver(self, strategy):
         """
-        Initialize the solver based on the chosen strategy.
+        根据策略初始化求解器。
 
-        Args:
-            strategy (Strategy): The strategy to use for solving.
+        参数:
+            strategy (Strategy): 需要使用的求解策略。
 
-        Returns:
-            ThoughtSolverBase: An instance of the appropriate solver.
+        返回:
+            ThoughtSolverBase: 初始化的求解器实例。
         """
         if strategy == Strategy.BFS:
             self.solver = BFSSolver(config=self.config)
@@ -261,17 +240,16 @@ class TreeofThought(BaseModel):
         elif strategy == Strategy.MCTS:
             self.solver = MCTSSolver(config=self.config)
         else:
-            raise NotImplementedError(f"Invalid strategy: {strategy}, only support BFS/DFS/MCTS currently!")
+            raise NotImplementedError(f"无效策略: {strategy}，仅支持 BFS/DFS/MCTS！")
 
     async def solve(self, init_prompt=""):
         """
-        Solve the problem using the specified strategy.
+        使用指定策略解决问题。
 
-        Args:
-            init_prompt (str): The initial prompt for the solver.
-            strategy (str): The strategy to use for solving.
+        参数:
+            init_prompt (str): 初始提示词。
 
-        Returns:
-            Any: The solution obtained using the selected strategy.
+        返回:
+            Any: 选定策略的求解结果。
         """
         await self.solver.solve(init_prompt)
