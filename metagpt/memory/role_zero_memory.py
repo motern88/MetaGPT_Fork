@@ -17,44 +17,48 @@ from metagpt.utils.exceptions import handle_exception
 
 if TYPE_CHECKING:
     from llama_index.core.schema import NodeWithScore
-
     from metagpt.rag.engines import SimpleEngine
 
 
 class RoleZeroLongTermMemory(Memory):
     """
-    Implements a memory system combining short-term and long-term storage using a RAG engine.
-    Transfers old memories to long-term storage when short-term capacity is reached.
-    Retrieves combined short-term and long-term memories as needed.
+    实现了一个结合短期和长期存储的记忆系统，使用 RAG 引擎。
+    当短期存储容量达到上限时，会将旧记忆转移到长期存储。
+    需要时可以检索短期和长期记忆的结合。
     """
 
-    persist_path: str = Field(default=".role_memory_data", description="The directory to save data.")
-    collection_name: str = Field(default="role_zero", description="The name of the collection, such as the role name.")
-    memory_k: int = Field(default=200, description="The capacity of short-term memory.")
-    similarity_top_k: int = Field(default=5, description="The number of long-term memories to retrieve.")
-    use_llm_ranker: bool = Field(default=False, description="Whether to use LLM Reranker to get better result.")
+    persist_path: str = Field(default=".role_memory_data", description="保存数据的目录。")
+    collection_name: str = Field(default="role_zero", description="集合名称，例如角色名称。")
+    memory_k: int = Field(default=200, description="短期记忆的容量。")
+    similarity_top_k: int = Field(default=5, description="检索的长期记忆数量。")
+    use_llm_ranker: bool = Field(default=False, description="是否使用 LLM 排序器以获得更好的结果。")
 
-    _rag_engine: Any = None
+    _rag_engine: Any = None  # RAG 引擎实例
 
     @property
     def rag_engine(self) -> "SimpleEngine":
+        """
+        获取 RAG 引擎。如果未初始化，则调用 _resolve_rag_engine() 方法进行初始化。
+        """
         if self._rag_engine is None:
             self._rag_engine = self._resolve_rag_engine()
 
         return self._rag_engine
 
     def _resolve_rag_engine(self) -> "SimpleEngine":
-        """Lazy loading of the RAG engine components, ensuring they are only loaded when needed.
+        """
+        延迟加载 RAG 引擎组件，确保只有在需要时才加载。
 
-        It uses `Chroma` for retrieval and `LLMRanker` for ranking.
+        它使用 `Chroma` 进行检索，使用 `LLMRanker` 进行排名。
         """
 
         try:
             from metagpt.rag.engines import SimpleEngine
             from metagpt.rag.schema import ChromaRetrieverConfig, LLMRankerConfig
         except ImportError:
-            raise ImportError("To use the RoleZeroMemory, you need to install the rag module.")
+            raise ImportError("要使用 RoleZeroMemory，需要安装 rag 模块。")
 
+        # 设置检索器配置
         retriever_configs = [
             ChromaRetrieverConfig(
                 persist_path=self.persist_path,
@@ -62,52 +66,63 @@ class RoleZeroLongTermMemory(Memory):
                 similarity_top_k=self.similarity_top_k,
             )
         ]
+        # 根据是否使用 LLM 排序器来配置排名器
         ranker_configs = [LLMRankerConfig()] if self.use_llm_ranker else []
 
+        # 初始化 RAG 引擎
         rag_engine = SimpleEngine.from_objs(retriever_configs=retriever_configs, ranker_configs=ranker_configs)
 
         return rag_engine
 
     def add(self, message: Message):
-        """Add a new message and potentially transfer it to long-term memory."""
+        """
+        添加新消息，并在必要时将其转移到长期记忆中。
+        """
 
         super().add(message)
 
+        # 判断是否需要使用长期记忆，如果需要则转移到长期记忆
         if not self._should_use_longterm_memory_for_add():
             return
 
         self._transfer_to_longterm_memory()
 
     def get(self, k=0) -> list[Message]:
-        """Return recent memories and optionally combines them with related long-term memories."""
+        """
+        返回最近的记忆，并在必要时将其与相关的长期记忆合并。
+        """
 
         memories = super().get(k)
 
+        # 判断是否需要合并长期记忆
         if not self._should_use_longterm_memory_for_get(k=k):
             return memories
 
         query = self._build_longterm_memory_query()
         related_memories = self._fetch_longterm_memories(query)
-        logger.info(f"Fetched {len(related_memories)} long-term memories.")
+        logger.info(f"已获取 {len(related_memories)} 条长期记忆。")
 
+        # 将长期记忆和短期记忆合并
         final_memories = related_memories + memories
 
         return final_memories
 
     def _should_use_longterm_memory_for_add(self) -> bool:
-        """Determines if long-term memory should be used for add."""
-
+        """
+        判断是否应该使用长期记忆。
+        当短期记忆数量超过 memory_k 时使用长期记忆。
+        """
         return self.count() > self.memory_k
 
     def _should_use_longterm_memory_for_get(self, k: int) -> bool:
-        """Determines if long-term memory should be used for get.
-
-        Long-term memory is used if:
-        - k is not 0.
-        - The last message is from user requirement.
-        - The count of recent memories is greater than self.memory_k.
         """
+        判断是否应该在获取时使用长期记忆。
 
+        使用长期记忆的条件：
+        - k 不等于 0
+        - 最后一条消息来自用户要求
+        - 最近的记忆数量大于 memory_k
+        """
         conds = [
             k != 0,
             self._is_last_message_from_user_requirement(),
@@ -117,11 +132,16 @@ class RoleZeroLongTermMemory(Memory):
         return all(conds)
 
     def _transfer_to_longterm_memory(self):
+        """
+        将短期记忆中的一条消息转移到长期记忆中。
+        """
         item = self._get_longterm_memory_item()
         self._add_to_longterm_memory(item)
 
     def _get_longterm_memory_item(self) -> Optional[LongTermMemoryItem]:
-        """Retrieves the most recent message before the last k messages."""
+        """
+        获取最近的一条短期记忆，通常是倒数第 k+1 条消息。
+        """
 
         index = -(self.memory_k + 1)
         message = self.get_by_position(index)
@@ -130,9 +150,10 @@ class RoleZeroLongTermMemory(Memory):
 
     @handle_exception
     def _add_to_longterm_memory(self, item: LongTermMemoryItem):
-        """Adds a long-term memory item to the RAG engine.
+        """
+        将长期记忆项添加到 RAG 引擎中。
 
-        If adding long-term memory fails, it will only log the error without interrupting program execution.
+        如果添加长期记忆失败，记录错误但不中断程序执行。
         """
 
         if not item or not item.message.content:
@@ -142,17 +163,17 @@ class RoleZeroLongTermMemory(Memory):
 
     @handle_exception(default_return=[])
     def _fetch_longterm_memories(self, query: str) -> list[Message]:
-        """Fetches long-term memories based on a query.
+        """
+        根据查询获取长期记忆。
 
-        If fetching long-term memories fails, it will return the default value (an empty list) without interrupting program execution.
+        如果获取长期记忆失败，将返回默认值（空列表），而不中断程序执行。
 
         Args:
-            query (str): The query string to search for relevant memories.
+            query (str): 用于搜索相关记忆的查询字符串。
 
         Returns:
-            list[Message]: A list of user and AI messages related to the query.
+            list[Message]: 与查询相关的用户和 AI 消息列表。
         """
-
         if not query:
             return []
 
@@ -163,7 +184,9 @@ class RoleZeroLongTermMemory(Memory):
         return memories
 
     def _get_items_from_nodes(self, nodes: list["NodeWithScore"]) -> list[LongTermMemoryItem]:
-        """Get items from nodes and arrange them in order of their `created_at`."""
+        """
+        从节点中获取记忆项，并根据其 `created_at` 时间戳进行排序。
+        """
 
         items: list[LongTermMemoryItem] = [node.metadata["obj"] for node in nodes]
         items.sort(key=lambda item: item.created_at)
@@ -171,9 +194,10 @@ class RoleZeroLongTermMemory(Memory):
         return items
 
     def _build_longterm_memory_query(self) -> str:
-        """Build the content used to query related long-term memory.
+        """
+        构建用于查询相关长期记忆的内容。
 
-        Default is to get the most recent user message, or an empty string if none is found.
+        默认查询是获取最近的用户消息，如果没有找到则返回空字符串。
         """
 
         message = self._get_the_last_message()
@@ -181,13 +205,20 @@ class RoleZeroLongTermMemory(Memory):
         return message.content if message else ""
 
     def _get_the_last_message(self) -> Optional[Message]:
+        """
+        获取最后一条消息。
+        如果没有消息，返回 None。
+        """
+
         if not self.count():
             return None
 
         return self.get_by_position(-1)
 
     def _is_last_message_from_user_requirement(self) -> bool:
-        """Checks if the last message is from a user requirement or sent by the team leader."""
+        """
+        检查最后一条消息是否来自用户要求或由团队负责人发送。
+        """
 
         message = self._get_the_last_message()
 
