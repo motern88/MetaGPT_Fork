@@ -9,7 +9,7 @@ from metagpt.environment.base_env import Environment
 
 
 class AndroidEnv(AndroidExtEnv, Environment):
-    """in order to use actual `reset`&`observe`, inherited order: AndroidExtEnv, Environment"""
+    """为了使用实际的 `reset` 和 `observe` 方法，继承顺序：AndroidExtEnv, Environment"""
 
-    rows: int = Field(default=0, description="rows of a grid on the screenshot")
-    cols: int = Field(default=0, description="cols of a grid on the screenshot")
+    rows: int = Field(default=0, description="截图中网格的行数")
+    cols: int = Field(default=0, description="截图中网格的列数")

@@ -12,30 +12,36 @@ from metagpt.schema import Message
 
 
 class WerewolfEnv(WerewolfExtEnv, Environment):
+    # 环境中的回合计数
     round_cnt: int = Field(default=0)
 
     def add_roles(self, roles: Iterable["Role"]):
         """增加一批在当前环境的角色
         Add a batch of characters in the current environment
         """
+        # 遍历所有角色并将它们添加到环境中，角色名称作为键，因为同一角色可以在多个玩家中共享
         for role in roles:
-            self.roles[role.name] = role  # use name as key here, due to multi-player can have same profile
+            self.roles[role.name] = role  # 使用角色名称作为键
 
-        for role in roles:  # setup system message with roles
-            role.context = self.context
-            role.set_env(self)
+        # 为每个角色设置系统消息和环境上下文
+        for role in roles:
+            role.context = self.context  # 将当前环境的上下文赋给角色
+            role.set_env(self)  # 将环境设置到角色中
 
     def publish_message(self, message: Message, add_timestamp: bool = True):
-        """Post information to the current environment"""
+        """发布信息到当前环境"""
         if add_timestamp:
-            # Because the content of the message may be repeated, for example, killing the same person in two nights
-            # Therefore, a unique round_cnt prefix needs to be added so that the same message will not be automatically deduplicated when added to the memory.
+            # 由于消息内容可能会重复，例如，在两晚之间杀死同一个人
+            # 因此需要添加唯一的回合计数前缀，以防相同的消息在添加到记忆时被自动去重
             message.content = f"{self.round_cnt} | " + message.content
+        # 调用父类的发布消息方法
         super().publish_message(message)
 
     async def run(self, k=1):
-        """Process all Role runs by order"""
+        """按顺序处理所有角色的运行"""
         for _ in range(k):
+            # 遍历所有角色并执行每个角色的行为
             for role in self.roles.values():
                 await role.run()
+            # 每处理完一轮，回合计数加一
             self.round_cnt += 1

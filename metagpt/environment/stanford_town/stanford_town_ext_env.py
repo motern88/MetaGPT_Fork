@@ -25,12 +25,12 @@ from metagpt.utils.common import read_csv_to_list, read_json_file
 class StanfordTownExtEnv(ExtEnv):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    maze_asset_path: Optional[Path] = Field(default=None, description="the path to store maze assets")
-    maze_width: int = Field(default=140, description="maze map width")
-    maze_height: int = Field(default=100, description="maze map height")
-    sq_tile_size: int = Field(default=32, description="the pixel height/width of a tile")
+    maze_asset_path: Optional[Path] = Field(default=None, description="迷宫资产的存储路径")
+    maze_width: int = Field(default=140, description="迷宫地图的宽度")
+    maze_height: int = Field(default=100, description="迷宫地图的高度")
+    sq_tile_size: int = Field(default=32, description="每个方块的像素宽高")
     special_constraint: str = Field(
-        default="", description="a string description of any relevant special constraints " "the world might have"
+        default="", description="描述世界中可能存在的任何特殊约束的字符串"
     )
     tiles: list[list[dict]] = Field(default=[])
     address_tiles: dict[str, set] = Field(default=dict())
@@ -43,6 +43,7 @@ class StanfordTownExtEnv(ExtEnv):
         assert maze_asset_path
         maze_asset_path = Path(maze_asset_path)
 
+        # 读取迷宫的元数据
         maze_matrix_path = maze_asset_path.joinpath("matrix")
         meta_info = read_json_file(maze_matrix_path.joinpath("maze_meta_info.json"))
 
@@ -53,11 +54,7 @@ class StanfordTownExtEnv(ExtEnv):
         values["sq_tile_size"] = int(meta_info["sq_tile_size"])
         values["special_constraint"] = meta_info["special_constraint"]
 
-        # READING IN SPECIAL BLOCKS
-        # Special blocks are those that are colored in the Tiled map.
-        # Here is an example row for the arena block file:
-        # e.g, "25331, Double Studio, Studio, Bedroom 2, Painting"
-
+        # 读取特殊方块数据
         blocks_folder = maze_matrix_path.joinpath("special_blocks")
 
         _wb = blocks_folder.joinpath("world_blocks.csv")
@@ -88,9 +85,7 @@ class StanfordTownExtEnv(ExtEnv):
         for i in slb_rows:
             slb_dict[i[0]] = i[-1]
 
-        # [SECTION 3] Reading in the matrices
-        # This is your typical two dimensional matrices. It's made up of 0s and
-        # the number that represents the color block from the blocks folder.
+        # [部分3] 读取迷宫矩阵
         maze_folder = maze_matrix_path.joinpath("maze")
 
         _cm = maze_folder.joinpath("collision_maze.csv")
@@ -104,13 +99,9 @@ class StanfordTownExtEnv(ExtEnv):
         _slm = maze_folder.joinpath("spawning_location_maze.csv")
         spawning_location_maze_raw = read_csv_to_list(_slm, header=False)[0]
 
-        # Loading the maze. The mazes are taken directly from the json exports of
-        # Tiled maps. They should be in csv format.
-        # Importantly, they are "not" in a 2-d matrix format -- they are single
-        # row matrices with the length of width x height of the maze. So we need
-        # to convert here.
-        # example format: [['0', '0', ... '25309', '0',...], ['0',...]...]
-        # 25309 is the collision bar number right now.
+        # 加载迷宫。迷宫数据直接来自Tiled地图的JSON导出，格式为CSV。
+        # 需要注意的是，数据并不是2D矩阵格式，而是单行矩阵，需要转换为二维格式。
+        # 例如，[['0', '0', ... '25309', '0', ...], ['0', ...], ...]
         collision_maze = []
         sector_maze = []
         arena_maze = []
@@ -125,6 +116,7 @@ class StanfordTownExtEnv(ExtEnv):
             spawning_location_maze += [spawning_location_maze_raw[i : i + tw]]
         values["collision_maze"] = collision_maze
 
+        # 处理每个迷宫方块的详细信息
         tiles = []
         for i in range(maze_height):
             row = []
@@ -158,8 +150,7 @@ class StanfordTownExtEnv(ExtEnv):
             tiles += [row]
         values["tiles"] = tiles
 
-        # Each game object occupies an event in the tile. We are setting up the
-        # default event value here.
+        # 设置每个游戏对象的事件
         for i in range(maze_height):
             for j in range(maze_width):
                 if tiles[i][j]["game_object"]:
@@ -169,14 +160,8 @@ class StanfordTownExtEnv(ExtEnv):
                     go_event = (object_name, None, None, None)
                     tiles[i][j]["events"].add(go_event)
 
-        # Reverse tile access.
-        # <address_tiles> -- given a string address, we return a set of all
-        # tile coordinates belonging to that address (this is opposite of
-        # tiles that give you the string address given a coordinate). This is
-        # an optimization component for finding paths for the personas' movement.
-        # address_tiles['<spawn_loc>bedroom-2-a'] == {(58, 9)}
-        # address_tiles['double studio:recreation:pool table']
-        #   == {(29, 14), (31, 11), (30, 14), (32, 11), ...},
+        # 反向索引：给定一个地址，返回所有属于该地址的坐标集合
+        # 这个索引有助于优化查找角色移动路径
         address_tiles = dict()
         for i in range(maze_height):
             for j in range(maze_width):
@@ -207,18 +192,19 @@ class StanfordTownExtEnv(ExtEnv):
                         address_tiles[add] = set([(j, i)])
         values["address_tiles"] = address_tiles
 
+        # 获取动作空间和观察空间
         values["action_space"] = get_action_space((maze_width, maze_height))
         values["observation_space"] = get_observation_space()
         return values
 
     def reset(
-        self,
-        *,
-        seed: Optional[int] = None,
-        options: Optional[dict[str, Any]] = None,
+            self,
+            *,
+            seed: Optional[int] = None,
+            options: Optional[dict[str, Any]] = None,
     ) -> tuple[dict[str, EnvObsValType], dict[str, Any]]:
-        """reset env and get the init observation
-        Return results corresponding to `observation, info`
+        """重置环境并获取初始观测值
+        返回结果对应于 `observation, info`
         """
         super().reset(seed=seed, options=options)
 
@@ -227,7 +213,7 @@ class StanfordTownExtEnv(ExtEnv):
         return obs, {}
 
     def _get_obs(self) -> dict[str, EnvObsValType]:
-        """Get observation"""
+        """获取观测值"""
         return {
             "collision_maze": self.get_collision_maze(),
             "tiles": self.tiles,
@@ -235,7 +221,7 @@ class StanfordTownExtEnv(ExtEnv):
         }
 
     def observe(self, obs_params: Optional[EnvObsParams] = None) -> Any:
-        """Get partial or full observation from the env"""
+        """从环境中获取部分或完整的观测值"""
         obs_type = obs_params.obs_type if obs_params else EnvObsType.NONE
         if obs_type == EnvObsType.NONE:
             obs = self._get_obs()
@@ -248,8 +234,8 @@ class StanfordTownExtEnv(ExtEnv):
         return obs
 
     def step(self, action: EnvAction) -> tuple[dict[str, EnvObsValType], float, bool, bool, dict[str, Any]]:
-        """Execute action and then return observation
-        Return results corresponding to `observation, reward, terminated, truncated, info`
+        """执行动作并返回观测值
+        返回结果对应于 `observation, reward, terminated, truncated, info`
         """
         terminated = False
         try:
@@ -263,6 +249,7 @@ class StanfordTownExtEnv(ExtEnv):
         return ret
 
     def _execute_env_action(self, action: EnvAction):
+        """根据动作执行环境操作"""
         action_type = action.action_type
         if action_type == EnvActionType.NONE:
             pass
@@ -277,7 +264,7 @@ class StanfordTownExtEnv(ExtEnv):
 
     def turn_coordinate_to_tile(self, px_coordinate: tuple[int, int]) -> tuple[int, int]:
         """
-        Turns a pixel coordinate to a tile coordinate.
+        将像素坐标转换为瓦片坐标
         """
         x = math.ceil(px_coordinate[0] / self.sq_tile_size)
         y = math.ceil(px_coordinate[1] / self.sq_tile_size)
@@ -285,30 +272,30 @@ class StanfordTownExtEnv(ExtEnv):
 
     @mark_as_readable
     def get_collision_maze(self) -> list:
+        """获取碰撞迷宫"""
         return self.collision_maze
 
     @mark_as_readable
     def get_address_tiles(self) -> dict:
+        """获取地址瓦片"""
         return self.address_tiles
 
     @mark_as_readable
     def access_tile(self, tile: tuple[int, int]) -> dict:
         """
-        Returns the tiles details dictionary that is stored in self.tiles of the
-        designated x, y location.
+        返回指定坐标（x, y）位置的瓦片详细信息字典。
 
-        INPUT
-          tile: The tile coordinate of our interest in (x, y) form.
-        OUTPUT
-          The tile detail dictionary for the designated tile.
-        EXAMPLE OUTPUT
-          Given (58, 9),
+        输入:
+          tile: 我们感兴趣的瓦片坐标，格式为 (x, y)。
+        输出:
+          指定瓦片的详细信息字典。
+        示例输出:
+          给定 (58, 9),
           self.tiles[9][58] = {'world': 'double studio',
-                'sector': 'double studio', 'arena': 'bedroom 2',
-                'game_object': 'bed', 'spawning_location': 'bedroom-2-a',
-                'collision': False,
-                'events': {('double studio:double studio:bedroom 2:bed',
-                           None, None)}}
+                                'sector': 'double studio', 'arena': 'bedroom 2',
+                                'game_object': 'bed', 'spawning_location': 'bedroom-2-a',
+                                'collision': False,
+                                'events': {('double studio:double studio:bedroom 2:bed', None, None)}}
         """
         x = tile[0]
         y = tile[1]
@@ -317,17 +304,16 @@ class StanfordTownExtEnv(ExtEnv):
     @mark_as_readable
     def get_tile_path(self, tile: tuple[int, int], level: str) -> str:
         """
-        Get the tile string address given its coordinate. You designate the level
-        by giving it a string level description.
+        获取指定坐标的瓦片字符串地址，依据指定的层级（如：world、sector、arena、game object）。
 
-        INPUT:
-          tile: The tile coordinate of our interest in (x, y) form.
-          level: world, sector, arena, or game object
-        OUTPUT
-          The string address for the tile.
-        EXAMPLE OUTPUT
-          Given tile=(58, 9), and level=arena,
-          "double studio:double studio:bedroom 2"
+        输入:
+          tile: 我们感兴趣的瓦片坐标，格式为 (x, y)。
+          level: 指定层级，可能值有：world、sector、arena、game object。
+        输出:
+          瓦片的字符串地址。
+        示例输出:
+          给定 tile=(58, 9)，level='arena'，
+          返回: "double studio:double studio:bedroom 2"
         """
         x = tile[0]
         y = tile[1]
@@ -354,21 +340,20 @@ class StanfordTownExtEnv(ExtEnv):
     @mark_as_readable
     def get_nearby_tiles(self, tile: tuple[int, int], vision_r: int) -> list[tuple[int, int]]:
         """
-        Given the current tile and vision_r, return a list of tiles that are
-        within the radius. Note that this implementation looks at a square
-        boundary when determining what is within the radius.
-        i.e., for vision_r, returns x's.
+        给定当前的坐标点和视距半径，返回一个在该半径范围内的所有方块坐标。
+        注意，该实现是通过判断方块是否在一个方形区域内来确定视距范围。
+        例如，对于视距半径vision_r，返回如下的方块(x)：
         x x x x x
         x x x x x
         x x P x x
         x x x x x
         x x x x x
 
-        INPUT:
-          tile: The tile coordinate of our interest in (x, y) form.
-          vision_r: The radius of the persona's vision.
-        OUTPUT:
-          nearby_tiles: a list of tiles that are within the radius.
+        输入:
+          tile: 当前方块的坐标，(x, y)格式。
+          vision_r: 视距半径。
+        输出:
+          nearby_tiles: 一个列表，包含在视距半径内的方块坐标。
         """
         left_end = 0
         if tile[0] - vision_r > left_end:
@@ -395,30 +380,28 @@ class StanfordTownExtEnv(ExtEnv):
     @mark_as_writeable
     def add_event_from_tile(self, curr_event: tuple[str], tile: tuple[int, int]) -> None:
         """
-        Add an event triple to a tile.
+        向指定方块添加事件。
 
-        INPUT:
-          curr_event: Current event triple.
-            e.g., ('double studio:double studio:bedroom 2:bed', None,
-                    None)
-          tile: The tile coordinate of our interest in (x, y) form.
-        OUPUT:
-          None
+        输入:
+          curr_event: 当前的事件元组。
+            例如，('double studio:double studio:bedroom 2:bed', None, None)
+          tile: 目标方块的坐标，(x, y)格式。
+        输出:
+          无
         """
         self.tiles[tile[1]][tile[0]]["events"].add(curr_event)
 
     @mark_as_writeable
     def remove_event_from_tile(self, curr_event: tuple[str], tile: tuple[int, int]) -> None:
-        """dswaq
-        Remove an event triple from a tile.
+        """
+        从指定方块移除事件。
 
-        INPUT:
-          curr_event: Current event triple.
-            e.g., ('double studio:double studio:bedroom 2:bed', None,
-                    None)
-          tile: The tile coordinate of our interest in (x, y) form.
-        OUPUT:
-          None
+        输入:
+          curr_event: 当前的事件元组。
+            例如，('double studio:double studio:bedroom 2:bed', None, None)
+          tile: 目标方块的坐标，(x, y)格式。
+        输出:
+          无
         """
         curr_tile_ev_cp = self.tiles[tile[1]][tile[0]]["events"].copy()
         for event in curr_tile_ev_cp:
@@ -427,6 +410,15 @@ class StanfordTownExtEnv(ExtEnv):
 
     @mark_as_writeable
     def turn_event_from_tile_idle(self, curr_event: tuple[str], tile: tuple[int, int]) -> None:
+        """
+        将指定方块的事件设为“闲置”状态。
+
+        输入:
+          curr_event: 当前的事件元组。
+          tile: 目标方块的坐标，(x, y)格式。
+        输出:
+          无
+        """
         curr_tile_ev_cp = self.tiles[tile[1]][tile[0]]["events"].copy()
         for event in curr_tile_ev_cp:
             if event == curr_event:
@@ -437,13 +429,13 @@ class StanfordTownExtEnv(ExtEnv):
     @mark_as_writeable
     def remove_subject_events_from_tile(self, subject: str, tile: tuple[int, int]) -> None:
         """
-        Remove an event triple that has the input subject from a tile.
+        从指定方块移除包含特定主体的事件。
 
-        INPUT:
-          subject: "Isabella Rodriguez"
-          tile: The tile coordinate of our interest in (x, y) form.
-        OUPUT:
-          None
+        输入:
+          subject: 事件的主体，例如 "Isabella Rodriguez"
+          tile: 目标方块的坐标，(x, y)格式。
+        输出:
+          无
         """
         curr_tile_ev_cp = self.tiles[tile[1]][tile[0]]["events"].copy()
         for event in curr_tile_ev_cp:

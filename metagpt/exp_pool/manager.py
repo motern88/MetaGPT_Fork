@@ -16,12 +16,12 @@ if TYPE_CHECKING:
 
 
 class ExperienceManager(BaseModel):
-    """ExperienceManager manages the lifecycle of experiences, including CRUD and optimization.
+    """ExperienceManager 管理经验的生命周期，包括 CRUD 操作和优化。
 
-    Args:
-        config (Config): Configuration for managing experiences.
-        _storage (SimpleEngine): Engine to handle the storage and retrieval of experiences.
-        _vector_store (ChromaVectorStore): The actual place where vectors are stored.
+    参数:
+        config (Config): 用于管理经验的配置。
+        _storage (SimpleEngine): 处理经验存储和检索的引擎。
+        _vector_store (ChromaVectorStore): 实际存储向量的地方。
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -32,6 +32,11 @@ class ExperienceManager(BaseModel):
 
     @property
     def storage(self) -> "SimpleEngine":
+        """存储引擎属性，如果 _storage 为 None，则解析存储并返回。
+
+        返回:
+            SimpleEngine: 用于存储的引擎实例。
+        """
         if self._storage is None:
             logger.info(f"exp_pool config: {self.config.exp_pool}")
 
@@ -41,48 +46,72 @@ class ExperienceManager(BaseModel):
 
     @storage.setter
     def storage(self, value):
+        """设置存储引擎。
+
+        参数:
+            value: 需要设置的存储引擎。
+        """
         self._storage = value
 
     @property
     def is_readable(self) -> bool:
+        """是否启用读取操作的属性。
+
+        返回:
+            bool: 是否启用读取操作。
+        """
         return self.config.exp_pool.enabled and self.config.exp_pool.enable_read
 
     @is_readable.setter
     def is_readable(self, value: bool):
+        """设置是否启用读取操作。
+
+        参数:
+            value: 是否启用读取操作。
+        """
         self.config.exp_pool.enable_read = value
 
-        # If set to True, ensure that enabled is also True.
+        # 如果启用读取操作，确保启用 exp_pool。
         if value:
             self.config.exp_pool.enabled = True
 
     @property
     def is_writable(self) -> bool:
+        """是否启用写入操作的属性。
+
+        返回:
+            bool: 是否启用写入操作。
+        """
         return self.config.exp_pool.enabled and self.config.exp_pool.enable_write
 
     @is_writable.setter
     def is_writable(self, value: bool):
+        """设置是否启用写入操作。
+
+        参数:
+            value: 是否启用写入操作。
+        """
         self.config.exp_pool.enable_write = value
 
-        # If set to True, ensure that enabled is also True.
+        # 如果启用写入操作，确保启用 exp_pool。
         if value:
             self.config.exp_pool.enabled = True
 
     @handle_exception
     def create_exp(self, exp: Experience):
-        """Adds an experience to the storage if writing is enabled.
+        """如果启用了写入操作，添加一个经验到存储。
 
-        Args:
-            exp (Experience): The experience to add.
+        参数:
+            exp (Experience): 要添加的经验。
         """
-
         self.create_exps([exp])
 
     @handle_exception
     def create_exps(self, exps: list[Experience]):
-        """Adds multiple experiences to the storage if writing is enabled.
+        """如果启用了写入操作，添加多个经验到存储。
 
-        Args:
-            exps (list[Experience]): A list of experiences to add.
+        参数:
+            exps (list[Experience]): 要添加的经验列表。
         """
         if not self.is_writable:
             return
@@ -92,24 +121,23 @@ class ExperienceManager(BaseModel):
 
     @handle_exception(default_return=[])
     async def query_exps(self, req: str, tag: str = "", query_type: QueryType = QueryType.SEMANTIC) -> list[Experience]:
-        """Retrieves and filters experiences.
+        """检索和过滤经验。
 
-        Args:
-            req (str): The query string to retrieve experiences.
-            tag (str): Optional tag to filter the experiences by.
-            query_type (QueryType): Default semantic to vector matching. exact to same matching.
+        参数:
+            req (str): 查询字符串，用于检索经验。
+            tag (str): 可选的标签，用于根据标签过滤经验。
+            query_type (QueryType): 默认语义匹配，exact 用于精确匹配。
 
-        Returns:
-            list[Experience]: A list of experiences that match the args.
+        返回:
+            list[Experience]: 匹配的经验列表。
         """
-
         if not self.is_readable:
             return []
 
         nodes = await self.storage.aretrieve(req)
         exps: list[Experience] = [node.metadata["obj"] for node in nodes]
 
-        # TODO: filter by metadata
+        # TODO: 根据元数据过滤
         if tag:
             exps = [exp for exp in exps if exp.tag == tag]
 
@@ -120,21 +148,26 @@ class ExperienceManager(BaseModel):
 
     @handle_exception
     def delete_all_exps(self):
-        """Delete the all experiences."""
-
+        """删除所有经验。"""
         if not self.is_writable:
             return
 
         self.storage.clear(persist_dir=self.config.exp_pool.persist_path)
 
     def get_exps_count(self) -> int:
-        """Get the total number of experiences."""
+        """获取经验的总数。
 
+        返回:
+            int: 经验总数。
+        """
         return self.storage.count()
 
     def _resolve_storage(self) -> "SimpleEngine":
-        """Selects the appropriate storage creation method based on the configured retrieval type."""
+        """根据配置的检索类型选择合适的存储创建方法。
 
+        返回:
+            SimpleEngine: 创建的存储引擎。
+        """
         storage_creators = {
             ExperiencePoolRetrievalType.BM25: self._create_bm25_storage,
             ExperiencePoolRetrievalType.CHROMA: self._create_chroma_storage,
@@ -143,24 +176,21 @@ class ExperienceManager(BaseModel):
         return storage_creators[self.config.exp_pool.retrieval_type]()
 
     def _create_bm25_storage(self) -> "SimpleEngine":
-        """Creates or loads BM25 storage.
+        """创建或加载 BM25 存储。
 
-        This function attempts to create a new BM25 storage if the specified
-        document store path does not exist. If the path exists, it loads the
-        existing BM25 storage.
+        尝试创建一个新的 BM25 存储，如果指定的文档存储路径不存在，则创建。如果路径存在，则加载现有的 BM25 存储。
 
-        Returns:
-            SimpleEngine: An instance of SimpleEngine configured with BM25 storage.
+        返回:
+            SimpleEngine: 配置了 BM25 存储的 SimpleEngine 实例。
 
-        Raises:
-            ImportError: If required modules are not installed.
+        异常:
+            ImportError: 如果需要的模块未安装。
         """
-
         try:
             from metagpt.rag.engines import SimpleEngine
             from metagpt.rag.schema import BM25IndexConfig, BM25RetrieverConfig
         except ImportError:
-            raise ImportError("To use the experience pool, you need to install the rag module.")
+            raise ImportError("要使用经验池，您需要安装 rag 模块。")
 
         persist_path = Path(self.config.exp_pool.persist_path)
         docstore_path = persist_path / "docstore.json"
@@ -168,7 +198,7 @@ class ExperienceManager(BaseModel):
         ranker_configs = self._get_ranker_configs()
 
         if not docstore_path.exists():
-            logger.debug(f"Path `{docstore_path}` not exists, try to create a new bm25 storage.")
+            logger.debug(f"Path `{docstore_path}` 不存在，尝试创建新的 bm25 存储。")
             exps = [Experience(req="req", resp="resp")]
 
             retriever_configs = [BM25RetrieverConfig(create_index=True, similarity_top_k=DEFAULT_SIMILARITY_TOP_K)]
@@ -178,7 +208,7 @@ class ExperienceManager(BaseModel):
             )
             return storage
 
-        logger.debug(f"Path `{docstore_path}` exists, try to load bm25 storage.")
+        logger.debug(f"Path `{docstore_path}` 已存在，尝试加载 bm25 存储。")
         retriever_configs = [BM25RetrieverConfig(similarity_top_k=DEFAULT_SIMILARITY_TOP_K)]
         storage = SimpleEngine.from_index(
             BM25IndexConfig(persist_path=persist_path),
@@ -189,20 +219,19 @@ class ExperienceManager(BaseModel):
         return storage
 
     def _create_chroma_storage(self) -> "SimpleEngine":
-        """Creates Chroma storage.
+        """创建 Chroma 存储。
 
-        Returns:
-            SimpleEngine: An instance of SimpleEngine configured with Chroma storage.
+        返回:
+            SimpleEngine: 配置了 Chroma 存储的 SimpleEngine 实例。
 
-        Raises:
-            ImportError: If required modules are not installed.
+        异常:
+            ImportError: 如果需要的模块未安装。
         """
-
         try:
             from metagpt.rag.engines import SimpleEngine
             from metagpt.rag.schema import ChromaRetrieverConfig
         except ImportError:
-            raise ImportError("To use the experience pool, you need to install the rag module.")
+            raise ImportError("要使用经验池，您需要安装 rag 模块。")
 
         retriever_configs = [
             ChromaRetrieverConfig(
@@ -218,19 +247,16 @@ class ExperienceManager(BaseModel):
         return storage
 
     def _get_ranker_configs(self):
-        """Returns ranker configurations based on the configuration.
+        """根据配置返回排名器配置。
 
-        If `use_llm_ranker` is True, returns a list with one `LLMRankerConfig`
-        instance. Otherwise, returns an empty list.
+        如果 `use_llm_ranker` 为 True，返回一个包含 LLMRankerConfig 实例的列表；否则返回一个空列表。
 
-        Returns:
-            list: A list of `LLMRankerConfig` instances or an empty list.
+        返回:
+            list: 包含 LLMRankerConfig 实例或空列表。
         """
-
         from metagpt.rag.schema import LLMRankerConfig
 
         return [LLMRankerConfig(top_n=DEFAULT_SIMILARITY_TOP_K)] if self.config.exp_pool.use_llm_ranker else []
-
 
 _exp_manager = None
 

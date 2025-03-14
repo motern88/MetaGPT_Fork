@@ -27,51 +27,52 @@ from metagpt.utils.git_repository import GitRepository
 
 
 class EnvType(Enum):
-    ANDROID = "Android"
-    GYM = "Gym"
-    WEREWOLF = "Werewolf"
-    MINECRAFT = "Minecraft"
-    STANFORDTOWN = "StanfordTown"
+    ANDROID = "Android"  # Android 环境
+    GYM = "Gym"  # 健身房环境
+    WEREWOLF = "Werewolf"  # 狼人环境
+    MINECRAFT = "Minecraft"  # 我的世界环境
+    STANFORDTOWN = "StanfordTown"  # 斯坦福镇环境
 
 
-env_write_api_registry = WriteAPIRegistry()
-env_read_api_registry = ReadAPIRegistry()
+env_write_api_registry = WriteAPIRegistry()  # 注册写API
+env_read_api_registry = ReadAPIRegistry()  # 注册读API
 
 
 def mark_as_readable(func):
-    """mark functionn as a readable one in ExtEnv, it observes something from ExtEnv"""
-    env_read_api_registry[func.__name__] = get_function_schema(func)
+    """标记函数为可读取的，它从 ExtEnv 中观察某些内容"""
+    env_read_api_registry[func.__name__] = get_function_schema(func)  # 将函数的schema注册到读取API中
     return func
 
 
 def mark_as_writeable(func):
-    """mark functionn as a writeable one in ExtEnv, it does something to ExtEnv"""
-    env_write_api_registry[func.__name__] = get_function_schema(func)
+    """标记函数为可写的，它对 ExtEnv 进行某些操作"""
+    env_write_api_registry[func.__name__] = get_function_schema(func)  # 将函数的schema注册到写入API中
     return func
 
 
 class ExtEnv(BaseEnvironment, BaseModel):
-    """External Env to integrate actual game environment"""
+    """External Env，用于集成实际的游戏环境"""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)  # 配置模型允许任意类型
 
-    action_space: spaces.Space[ActType] = Field(default_factory=spaces.Space, exclude=True)
-    observation_space: spaces.Space[ObsType] = Field(default_factory=spaces.Space, exclude=True)
+    action_space: spaces.Space[ActType] = Field(default_factory=spaces.Space, exclude=True)  # 动作空间
+    observation_space: spaces.Space[ObsType] = Field(default_factory=spaces.Space, exclude=True)  # 观察空间
 
     def _check_api_exist(self, rw_api: Optional[str] = None):
+        """检查API是否存在"""
         if not rw_api:
-            raise ValueError(f"{rw_api} not exists")
+            raise ValueError(f"{rw_api} 不存在")
 
     def get_all_available_apis(self, mode: str = "read") -> list[Any]:
-        """get available read/write apis definition"""
+        """获取所有可用的读/写API定义"""
         assert mode in ["read", "write"]
         if mode == "read":
-            return env_read_api_registry.get_apis()
+            return env_read_api_registry.get_apis()  # 获取读API列表
         else:
-            return env_write_api_registry.get_apis()
+            return env_write_api_registry.get_apis()  # 获取写API列表
 
     async def read_from_api(self, env_action: Union[str, EnvAPIAbstract]):
-        """get observation from particular api of ExtEnv"""
+        """通过特定API从ExtEnv读取观察信息"""
         if isinstance(env_action, str):
             env_read_api = env_read_api_registry.get(api_name=env_action)["func"]
             self._check_api_exist(env_read_api)
@@ -89,10 +90,10 @@ class ExtEnv(BaseEnvironment, BaseModel):
         return res
 
     async def write_thru_api(self, env_action: Union[str, Message, EnvAPIAbstract, list[EnvAPIAbstract]]):
-        """execute through particular api of ExtEnv"""
+        """通过特定API执行写操作"""
         res = None
         if isinstance(env_action, Message):
-            self.publish_message(env_action)
+            self.publish_message(env_action)  # 发布消息
         elif isinstance(env_action, EnvAPIAbstract):
             env_write_api = env_write_api_registry.get(env_action.api_name)["func"]
             self._check_api_exist(env_write_api)
@@ -110,29 +111,29 @@ class ExtEnv(BaseEnvironment, BaseModel):
         seed: Optional[int] = None,
         options: Optional[dict[str, Any]] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Implement this to get init observation"""
+        """实现这个方法以获取初始观察结果"""
 
     @abstractmethod
     def observe(self, obs_params: Optional[BaseEnvObsParams] = None) -> Any:
-        """Implement this if you want to get partial observation from the env"""
+        """实现这个方法，如果您想从环境中获取部分观察结果"""
 
     @abstractmethod
     def step(self, action: BaseEnvAction) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
-        """Implement this to feed a action and then get new observation from the env"""
+        """实现这个方法来输入一个动作并获取环境的新的观察结果"""
 
 
 class Environment(ExtEnv):
     """环境，承载一批角色，角色可以向环境发布消息，可以被其他角色观察到
-    Environment, hosting a batch of roles, roles can publish messages to the environment, and can be observed by other roles
+    Environment，托管一批角色，角色可以向环境发布消息，也可以被其他角色观察到
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)  # 配置模型允许任意类型
 
     desc: str = Field(default="")  # 环境描述
-    roles: dict[str, SerializeAsAny[BaseRole]] = Field(default_factory=dict, validate_default=True)
-    member_addrs: Dict[BaseRole, Set] = Field(default_factory=dict, exclude=True)
-    history: Memory = Field(default_factory=Memory)  # For debug
-    context: Context = Field(default_factory=Context, exclude=True)
+    roles: dict[str, SerializeAsAny[BaseRole]] = Field(default_factory=dict, validate_default=True)  # 环境中的角色
+    member_addrs: Dict[BaseRole, Set] = Field(default_factory=dict, exclude=True)  # 成员地址
+    history: Memory = Field(default_factory=Memory)  # 用于调试的历史记录
+    context: Context = Field(default_factory=Context, exclude=True)  # 上下文
 
     def reset(
         self,
@@ -150,53 +151,48 @@ class Environment(ExtEnv):
 
     @model_validator(mode="after")
     def init_roles(self):
-        self.add_roles(self.roles.values())
+        """初始化角色"""
+        self.add_roles(self.roles.values())  # 向环境中添加角色
         return self
 
     def add_role(self, role: BaseRole):
-        """增加一个在当前环境的角色
-        Add a role in the current environment
-        """
+        """增加一个角色到当前环境"""
         self.roles[role.name] = role
-        role.set_env(self)
-        role.context = self.context
+        role.set_env(self)  # 将角色关联到环境
+        role.context = self.context  # 设置角色的上下文
 
     def add_roles(self, roles: Iterable[BaseRole]):
-        """增加一批在当前环境的角色
-        Add a batch of characters in the current environment
-        """
+        """增加一批角色到当前环境"""
         for role in roles:
             self.roles[role.name] = role
 
-        for role in roles:  # setup system message with roles
+        for role in roles:  # 设置角色的系统消息
             role.context = self.context
             role.set_env(self)
 
     def publish_message(self, message: Message, peekable: bool = True) -> bool:
         """
-        Distribute the message to the recipients.
-        In accordance with the Message routing structure design in Chapter 2.2.1 of RFC 116, as already planned
-        in RFC 113 for the entire system, the routing information in the Message is only responsible for
-        specifying the message recipient, without concern for where the message recipient is located. How to
-        route the message to the message recipient is a problem addressed by the transport framework designed
-        in RFC 113.
+        分发消息到接收者。
+        根据RFC 116第2.2.1章节中的消息路由结构设计，与RFC 113中为整个系统规划的内容一致，
+        消息中的路由信息仅负责指定消息接收者，而不关心消息接收者的位置。如何将消息路由到接收者是
+        由RFC 113中设计的传输框架来处理的问题。
         """
         logger.debug(f"publish_message: {message.dump()}")
         found = False
-        # According to the routing feature plan in Chapter 2.2.3.2 of RFC 113
+        # 根据RFC 113第2.2.3.2章节中的路由特性规划
         for role, addrs in self.member_addrs.items():
             if is_send_to(message, addrs):
                 role.put_message(message)
                 found = True
         if not found:
             logger.warning(f"Message no recipients: {message.dump()}")
-        self.history.add(message)  # For debug
+        self.history.add(message)  # 供调试使用
 
         return True
 
     async def run(self, k=1):
-        """处理一次所有信息的运行
-        Process all Role runs at once
+        """处理所有角色的运行
+        一次性处理所有角色的操作
         """
         for _ in range(k):
             futures = []
@@ -211,14 +207,14 @@ class Environment(ExtEnv):
             logger.debug(f"is idle: {self.is_idle}")
 
     def get_roles(self) -> dict[str, BaseRole]:
-        """获得环境内的所有角色
-        Process all Role runs at once
+        """获取环境内的所有角色
+        一次性处理所有角色的操作
         """
         return self.roles
 
     def get_role(self, name: str) -> BaseRole:
-        """获得环境内的指定角色
-        get all the environment roles
+        """获取环境内指定的角色
+        获取所有环境中的角色
         """
         return self.roles.get(name, None)
 
@@ -227,21 +223,22 @@ class Environment(ExtEnv):
 
     @property
     def is_idle(self):
-        """If true, all actions have been executed."""
+        """如果为True，表示所有动作都已执行完毕。"""
         for r in self.roles.values():
             if not r.is_idle:
                 return False
         return True
 
     def get_addresses(self, obj):
-        """Get the addresses of the object."""
+        """获取对象的地址。"""
         return self.member_addrs.get(obj, {})
 
     def set_addresses(self, obj, addresses):
-        """Set the addresses of the object"""
+        """设置对象的地址"""
         self.member_addrs[obj] = addresses
 
     def archive(self, auto_archive=True):
+        """归档环境数据"""
         if auto_archive and self.context.kwargs.get("project_path"):
             git_repo = GitRepository(self.context.kwargs.project_path)
             git_repo.archive()

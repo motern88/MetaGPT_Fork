@@ -44,22 +44,31 @@ Follow instructions, generate output and make sure it follows the **Constraint**
 """
 
 
+# 简单评分器类，继承自 BaseScorer
 class SimpleScorer(BaseScorer):
+    # 默认使用 BaseLLM 作为语言模型
     llm: BaseLLM = Field(default_factory=LLM)
 
+    # 评估响应质量的方法
     async def evaluate(self, req: str, resp: str) -> Score:
-        """Evaluates the quality of a response relative to a given request, as scored by an LLM.
+        """根据给定的请求和响应，通过 LLM 评估响应的质量，并返回评分。
 
-        Args:
-            req (str): The request.
-            resp (str): The response.
+        参数:
+            req (str): 请求字符串。
+            resp (str): 响应字符串。
 
-        Returns:
-            Score: An object containing the score (1-10) and the reasoning.
+        返回:
+            Score: 包含评分（1-10）和评分理由的对象。
         """
 
+        # 格式化评分模板，生成评估提示
         prompt = SIMPLE_SCORER_TEMPLATE.format(req=req, resp=resp)
+
+        # 使用 LLM 请求评分结果
         resp = await self.llm.aask(prompt)
+
+        # 解析返回的 JSON 格式的评分数据
         resp_json = json.loads(CodeParser.parse_code(resp, lang="json"))
 
+        # 返回评分对象
         return Score(**resp_json)
