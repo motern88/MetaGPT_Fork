@@ -16,32 +16,32 @@ from metagpt.tools import SearchEngineType
 
 
 class SearchEngine(BaseModel):
-    """A model for configuring and executing searches with different search engines.
+    """用于配置和执行不同搜索引擎的模型。
 
-    Attributes:
-        model_config: Configuration for the model allowing arbitrary types.
-        engine: The type of search engine to use.
-        run_func: An optional callable for running the search. If not provided, it will be determined based on the engine.
-        api_key: An optional API key for the search engine.
-        proxy: An optional proxy for the search engine requests.
+    属性:
+        model_config: 配置模型，允许使用任意类型。
+        engine: 要使用的搜索引擎类型。
+        run_func: 可选的执行搜索的函数。如果未提供，则根据引擎类型自动确定。
+        api_key: 可选的搜索引擎 API 密钥。
+        proxy: 可选的代理，用于搜索引擎请求。
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
-    engine: SearchEngineType = SearchEngineType.SERPER_GOOGLE
-    run_func: Annotated[
+    engine: SearchEngineType = SearchEngineType.SERPER_GOOGLE  # 默认使用 Serper 搜索引擎
+    run_func: Annotated[  # 可选的运行函数，异步执行搜索
         Optional[Callable[[str, int, bool], Coroutine[None, None, Union[str, list[str]]]]], Field(exclude=True)
     ] = None
-    api_key: Optional[str] = None
-    proxy: Optional[str] = None
+    api_key: Optional[str] = None  # 可选的 API 密钥
+    proxy: Optional[str] = None  # 可选的代理
 
     @model_validator(mode="after")
     def validate_extra(self):
-        """Validates extra fields provided to the model and updates the run function accordingly."""
+        """验证传递给模型的额外字段，并相应地更新运行函数。"""
         data = self.model_dump(exclude={"engine"}, exclude_none=True, exclude_defaults=True)
         if self.model_extra:
             data.update(self.model_extra)
-        self._process_extra(**data)
+        self._process_extra(**data)  # 处理额外的配置
         return self
 
     def _process_extra(
@@ -49,11 +49,12 @@ class SearchEngine(BaseModel):
         run_func: Optional[Callable[[str, int, bool], Coroutine[None, None, Union[str, list[str]]]]] = None,
         **kwargs,
     ):
-        """Processes extra configuration and updates the run function based on the search engine type.
+        """根据搜索引擎类型处理额外的配置，并更新运行函数。
 
-        Args:
-            run_func: An optional callable for running the search. If not provided, it will be determined based on the engine.
+        参数:
+            run_func: 可选的执行搜索的函数。如果未提供，将根据搜索引擎类型自动确定。
         """
+        # 根据引擎类型加载相应的模块并设置运行函数
         if self.engine == SearchEngineType.SERPAPI_GOOGLE:
             module = "metagpt.tools.search_engine_serpapi"
             run_func = importlib.import_module(module).SerpAPIWrapper(**kwargs).run
@@ -67,24 +68,24 @@ class SearchEngine(BaseModel):
             module = "metagpt.tools.search_engine_ddg"
             run_func = importlib.import_module(module).DDGAPIWrapper(**kwargs).run
         elif self.engine == SearchEngineType.CUSTOM_ENGINE:
-            run_func = self.run_func
+            run_func = self.run_func  # 使用自定义的搜索函数
         elif self.engine == SearchEngineType.BING:
             module = "metagpt.tools.search_engine_bing"
             run_func = importlib.import_module(module).BingAPIWrapper(**kwargs).run
         else:
-            raise NotImplementedError
+            raise NotImplementedError("该搜索引擎类型尚未实现")
         self.run_func = run_func
 
     @classmethod
     def from_search_config(cls, config: SearchConfig, **kwargs):
-        """Creates a SearchEngine instance from a SearchConfig.
+        """从 SearchConfig 创建 SearchEngine 实例。
 
-        Args:
-            config: The search configuration to use for creating the SearchEngine instance.
+        参数:
+            config: 用于创建 SearchEngine 实例的搜索配置。
         """
         data = config.model_dump(exclude={"api_type", "search_func"})
         if config.search_func is not None:
-            data["run_func"] = config.search_func
+            data["run_func"] = config.search_func  # 如果配置了搜索函数，使用它
 
         return cls(engine=config.api_type, **data, **kwargs)
 
@@ -92,10 +93,10 @@ class SearchEngine(BaseModel):
     def from_search_func(
         cls, search_func: Callable[[str, int, bool], Coroutine[None, None, Union[str, list[str]]]], **kwargs
     ):
-        """Creates a SearchEngine instance from a custom search function.
+        """从自定义搜索函数创建 SearchEngine 实例。
 
-        Args:
-            search_func: A callable that executes the search.
+        参数:
+            search_func: 执行搜索的可调用函数。
         """
         return cls(engine=SearchEngineType.CUSTOM_ENGINE, run_func=search_func, **kwargs)
 
@@ -124,22 +125,24 @@ class SearchEngine(BaseModel):
         as_string: bool = True,
         ignore_errors: bool = False,
     ) -> Union[str, list[dict[str, str]]]:
-        """Run a search query.
+        """执行搜索查询。
 
-        Args:
-            query: The search query.
-            max_results: The maximum number of results to return. Defaults to 8.
-            as_string: Whether to return the results as a string or a list of dictionaries. Defaults to True.
-            ignore_errors: Whether to ignore errors during the search. Defaults to False.
+        参数:
+            query: 搜索查询的字符串。
+            max_results: 返回的最大结果数量，默认为 8。
+            as_string: 是否将结果作为字符串返回，默认为 True。如果为 False，将返回字典列表。
+            ignore_errors: 是否忽略搜索中的错误，默认为 False。
 
-        Returns:
-            The search results as a string or a list of dictionaries.
+        返回:
+            搜索结果，可以是字符串或字典列表。
         """
         try:
+            # 执行搜索查询
             return await self.run_func(query, max_results=max_results, as_string=as_string)
         except Exception as e:
-            # Handle errors in the API call
-            logger.exception(f"fail to search {query} for {e}")
+            # 捕获异常并记录错误
+            logger.exception(f"搜索失败: {query}，错误信息: {e}")
             if not ignore_errors:
                 raise e
+            # 如果忽略错误，返回空字符串或空列表
             return "" if as_string else []

@@ -17,52 +17,55 @@ from metagpt.utils.common import awrite, check_cmd_exists
 
 
 async def mermaid_to_file(
-    engine,
-    mermaid_code,
-    output_file_without_suffix,
-    width=2048,
-    height=2048,
-    config=None,
-    suffixes: Optional[List[str]] = None,
+        engine,
+        mermaid_code,
+        output_file_without_suffix,
+        width=2048,
+        height=2048,
+        config=None,
+        suffixes: Optional[List[str]] = None,
 ) -> int:
-    """Convert Mermaid code to various file formats.
+    """
+    将 Mermaid 代码转换为各种文件格式。
 
-    Args:
-        engine (str): The engine to use for conversion. Supported engines are "nodejs", "playwright", "pyppeteer", "ink", and "none".
-        mermaid_code (str): The Mermaid code to be converted.
-        output_file_without_suffix (str): The output file name without the suffix.
-        width (int, optional): The width of the output image. Defaults to 2048.
-        height (int, optional): The height of the output image. Defaults to 2048.
-        config (Optional[Config], optional): The configuration to use for the conversion. Defaults to None, which uses the default configuration.
-        suffixes (Optional[List[str]], optional): The file suffixes to generate. Supports "png", "pdf", and "svg". Defaults to ["png"].
+    参数:
+        engine (str): 用于转换的引擎。支持的引擎有 "nodejs"、"playwright"、"pyppeteer"、"ink" 和 "none"。
+        mermaid_code (str): 要转换的 Mermaid 代码。
+        output_file_without_suffix (str): 输出文件名（不包括后缀）。
+        width (int, 可选): 输出图像的宽度。默认值为 2048。
+        height (int, 可选): 输出图像的高度。默认值为 2048。
+        config (Optional[Config], 可选): 用于转换的配置。如果为 None，则使用默认配置。
+        suffixes (Optional[List[str]], 可选): 生成的文件后缀。支持 "png"、"pdf" 和 "svg"。默认值为 ["svg"]。
 
-    Returns:
-        int: 0 if the conversion is successful, -1 if the conversion fails.
+    返回:
+        int: 如果转换成功，返回 0；如果转换失败，返回 -1。
     """
     file_head = "%%{init: {'theme': 'default', 'themeVariables': { 'fontFamily': 'Inter' }}}%%\n"
     if not re.match(r"^%%\{.+", mermaid_code):
-        mermaid_code = file_head + mermaid_code
-    suffixes = suffixes or ["svg"]
-    # Write the Mermaid code to a temporary file
+        mermaid_code = file_head + mermaid_code  # 如果 Mermaid 代码没有初始化部分，则添加
+
+    suffixes = suffixes or ["svg"]  # 默认使用 svg 后缀
+    # 将 Mermaid 代码写入临时文件
     config = config if config else Config.default()
     dir_name = os.path.dirname(output_file_without_suffix)
     if dir_name and not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+        os.makedirs(dir_name)  # 创建输出文件所在的目录（如果不存在）
     tmp = Path(f"{output_file_without_suffix}.mmd")
-    await awrite(filename=tmp, data=mermaid_code)
+    await awrite(filename=tmp, data=mermaid_code)  # 异步写入临时文件
 
+    # 如果引擎是 nodejs
     if engine == "nodejs":
         if check_cmd_exists(config.mermaid.path) != 0:
             logger.warning(
-                "RUN `npm install -g @mermaid-js/mermaid-cli` to install mmdc,"
-                "or consider changing engine to `playwright`, `pyppeteer`, or `ink`."
+                "运行 `npm install -g @mermaid-js/mermaid-cli` 来安装 mmdc，"
+                "或者考虑更改引擎为 `playwright`、`pyppeteer` 或 `ink`。"
             )
-            return -1
+            return -1  # 如果没有安装 mermaid-cli，则返回失败
 
         for suffix in suffixes:
             output_file = f"{output_file_without_suffix}.{suffix}"
-            # Call the `mmdc` command to convert the Mermaid code to a PNG
-            logger.info(f"Generating {output_file}..")
+            # 调用 `mmdc` 命令将 Mermaid 代码转换为 PNG
+            logger.info(f"生成 {output_file}..")
 
             if config.mermaid.puppeteer_config:
                 commands = [
@@ -80,6 +83,8 @@ async def mermaid_to_file(
                 ]
             else:
                 commands = [config.mermaid.path, "-i", str(tmp), "-o", output_file, "-w", str(width), "-H", str(height)]
+
+            # 异步执行命令并获取输出
             process = await asyncio.create_subprocess_shell(
                 " ".join(commands), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
@@ -89,7 +94,9 @@ async def mermaid_to_file(
                 logger.info(stdout.decode())
             if stderr:
                 logger.warning(stderr.decode())
+
     else:
+        # 对于其他引擎，调用相应的转换方法
         if engine == "playwright":
             from metagpt.utils.mmdc_playwright import mermaid_to_file
 
@@ -103,12 +110,13 @@ async def mermaid_to_file(
 
             return await mermaid_to_file(mermaid_code, output_file_without_suffix, suffixes=suffixes)
         elif engine == "none":
-            return 0
+            return 0  # 如果引擎为 "none"，不进行任何转换
         else:
-            logger.warning(f"Unsupported mermaid engine: {engine}")
-    return 0
+            logger.warning(f"不支持的 Mermaid 引擎: {engine}")
+    return 0  # 默认成功返回 0
 
 
+# 示例 Mermaid 代码：类图
 MMC1 = """
 classDiagram
     class Main {
@@ -143,6 +151,7 @@ classDiagram
     Index --> KnowledgeBase
 """
 
+# 示例 Mermaid 代码：时序图
 MMC2 = """
 sequenceDiagram
     participant M as Main

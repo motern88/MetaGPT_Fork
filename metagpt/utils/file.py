@@ -22,97 +22,103 @@ from metagpt.utils.repo_to_markdown import is_text_file
 
 
 class File:
-    """A general util for file operations."""
+    """文件操作的通用工具类。"""
 
-    CHUNK_SIZE = 64 * 1024
+    CHUNK_SIZE = 64 * 1024  # 默认文件读取块大小（64KB）
 
     @classmethod
     @handle_exception
     async def write(cls, root_path: Path, filename: str, content: bytes) -> Path:
-        """Write the file content to the local specified path.
+        """将文件内容写入本地指定路径。
 
-        Args:
-            root_path: The root path of file, such as "/data".
-            filename: The name of file, such as "test.txt".
-            content: The binary content of file.
+        参数:
+            root_path: 文件的根路径，例如 "/data"。
+            filename: 文件名，例如 "test.txt"。
+            content: 文件的二进制内容。
 
-        Returns:
-            The full filename of file, such as "/data/test.txt".
+        返回:
+            返回文件的完整路径，例如 "/data/test.txt"。
 
-        Raises:
-            Exception: If an unexpected error occurs during the file writing process.
+        异常:
+            Exception: 如果在文件写入过程中发生意外错误。
         """
-        root_path.mkdir(parents=True, exist_ok=True)
-        full_path = root_path / filename
+        root_path.mkdir(parents=True, exist_ok=True)  # 确保根路径存在
+        full_path = root_path / filename  # 拼接文件完整路径
         async with aiofiles.open(full_path, mode="wb") as writer:
-            await writer.write(content)
-            logger.debug(f"Successfully write file: {full_path}")
+            await writer.write(content)  # 异步写入文件内容
+            logger.debug(f"Successfully write file: {full_path}")  # 写入成功日志
             return full_path
 
     @classmethod
     @handle_exception
     async def read(cls, file_path: Path, chunk_size: int = None) -> bytes:
-        """Partitioning read the file content from the local specified path.
+        """按块读取文件内容。
 
-        Args:
-            file_path: The full file name of file, such as "/data/test.txt".
-            chunk_size: The size of each chunk in bytes (default is 64kb).
+        参数:
+            file_path: 文件的完整路径，例如 "/data/test.txt"。
+            chunk_size: 每块读取的大小（默认是64KB）。
 
-        Returns:
-            The binary content of file.
+        返回:
+            文件的二进制内容。
 
-        Raises:
-            Exception: If an unexpected error occurs during the file reading process.
+        异常:
+            Exception: 如果在文件读取过程中发生意外错误。
         """
-        chunk_size = chunk_size or cls.CHUNK_SIZE
+        chunk_size = chunk_size or cls.CHUNK_SIZE  # 默认使用64KB的块大小
         async with aiofiles.open(file_path, mode="rb") as reader:
             chunks = list()
             while True:
-                chunk = await reader.read(chunk_size)
+                chunk = await reader.read(chunk_size)  # 读取指定大小的块
                 if not chunk:
-                    break
+                    break  # 如果没有更多数据，则退出循环
                 chunks.append(chunk)
-            content = b"".join(chunks)
-            logger.debug(f"Successfully read file, the path of file: {file_path}")
+            content = b"".join(chunks)  # 合并所有块
+            logger.debug(f"Successfully read file, the path of file: {file_path}")  # 读取成功日志
             return content
 
     @staticmethod
     async def is_textual_file(filename: Union[str, Path]) -> bool:
-        """Determines if a given file is a textual file.
+        """判断给定的文件是否为文本文件。
 
-        A file is considered a textual file if it is plain text or has a
-        specific set of MIME types associated with textual formats,
-        including PDF and Microsoft Word documents.
+        文件被认为是文本文件，如果它是纯文本文件或具有特定MIME类型的文件，
+        例如PDF和Microsoft Word文档。
 
-        Args:
-            filename (Union[str, Path]): The path to the file to be checked.
+        参数:
+            filename (Union[str, Path]): 要检查的文件路径。
 
-        Returns:
-            bool: True if the file is a textual file, False otherwise.
+        返回:
+            bool: 如果文件是文本文件则返回True，否则返回False。
         """
-        is_text, mime_type = await is_text_file(filename)
+        is_text, mime_type = await is_text_file(filename)  # 检查文件是否为文本文件
         if is_text:
             return True
         if mime_type == "application/pdf":
             return True
         if mime_type in {
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-word.document.macroEnabled.12",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
-            "application/vnd.ms-word.template.macroEnabled.12",
+            "application/msword",  # Word文档类型
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # Word文档类型
+            "application/vnd.ms-word.document.macroEnabled.12",  # 启用了宏的Word文档类型
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.template",  # Word模板类型
+            "application/vnd.ms-word.template.macroEnabled.12",  # 启用了宏的Word模板类型
         }:
             return True
         return False
 
     @staticmethod
     async def read_text_file(filename: Union[str, Path]) -> Optional[str]:
-        """Read the whole content of a file. Using absolute paths as the argument for specifying the file location."""
-        is_text, mime_type = await is_text_file(filename)
+        """读取文件的全部内容，支持文本、PDF和Word文件。
+
+        参数:
+            filename (Union[str, Path]): 文件路径。
+
+        返回:
+            str: 文件的文本内容，如果文件无法读取则返回None。
+        """
+        is_text, mime_type = await is_text_file(filename)  # 检查文件类型
         if is_text:
-            return await File._read_text(filename)
+            return await File._read_text(filename)  # 读取纯文本文件
         if mime_type == "application/pdf":
-            return await File._read_pdf(filename)
+            return await File._read_pdf(filename)  # 读取PDF文件
         if mime_type in {
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -120,31 +126,31 @@ class File:
             "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
             "application/vnd.ms-word.template.macroEnabled.12",
         }:
-            return await File._read_docx(filename)
+            return await File._read_docx(filename)  # 读取Word文档
         return None
 
     @staticmethod
     async def _read_text(path: Union[str, Path]) -> str:
-        return await aread(path)
+        return await aread(path)  # 使用异步读取方法读取文本文件内容
 
     @staticmethod
     async def _read_pdf(path: Union[str, Path]) -> str:
-        result = await File._omniparse_read_file(path)
+        result = await File._omniparse_read_file(path)  # 尝试使用OmniParse解析文件
         if result:
             return result
 
-        from llama_index.readers.file import PDFReader
+        from llama_index.readers.file import PDFReader  # PDF读取器
 
         reader = PDFReader()
-        lines = reader.load_data(file=Path(path))
-        return "\n".join([i.text for i in lines])
+        lines = reader.load_data(file=Path(path))  # 读取PDF文件数据
+        return "\n".join([i.text for i in lines])  # 返回合并后的PDF内容
 
     @staticmethod
     async def _read_docx(path: Union[str, Path]) -> str:
-        result = await File._omniparse_read_file(path)
+        result = await File._omniparse_read_file(path)  # 尝试使用OmniParse解析文件
         if result:
             return result
-        return "\n".join(read_docx(str(path)))
+        return "\n".join(read_docx(str(path)))  # 使用docx读取器读取Word文档
 
     @staticmethod
     async def _omniparse_read_file(path: Union[str, Path], auto_save_image: bool = False) -> Optional[str]:
@@ -166,27 +172,27 @@ class File:
             timeout = 600
 
         try:
-            if not await check_http_endpoint(url=base_url):
+            if not await check_http_endpoint(url=base_url):  # 检查API端点是否可用
                 logger.warning(f"{base_url}: NOT AVAILABLE")
                 return None
             client = OmniParseClient(api_key=api_key, base_url=base_url, max_timeout=timeout)
-            file_data = await aread_bin(filename=path)
-            ret = await client.parse_document(file_input=file_data, bytes_filename=str(path))
+            file_data = await aread_bin(filename=path)  # 读取二进制文件内容
+            ret = await client.parse_document(file_input=file_data, bytes_filename=str(path))  # 使用OmniParse解析文件
         except (ValueError, Exception) as e:
             logger.exception(f"{path}: {e}")
             return None
-        if not ret.images or not auto_save_image:
+        if not ret.images or not auto_save_image:  # 如果没有图片或不保存图片，则返回文本内容
             return ret.text
 
         result = [ret.text]
-        img_dir = Path(path).parent / (Path(path).name.replace(".", "_") + "_images")
+        img_dir = Path(path).parent / (Path(path).name.replace(".", "_") + "_images")  # 图片存储目录
         img_dir.mkdir(parents=True, exist_ok=True)
         for i in ret.images:
-            byte_data = base64.b64decode(i.image)
+            byte_data = base64.b64decode(i.image)  # 解码图片
             filename = img_dir / i.image_name
-            await awrite_bin(filename=filename, data=byte_data)
+            await awrite_bin(filename=filename, data=byte_data)  # 保存图片
             result.append(f"![{i.image_name}]({str(filename)})")
-        return "\n".join(result)
+        return "\n".join(result)  # 返回文本和图片的合并结果
 
     @staticmethod
     async def _read_omniparse_config() -> Tuple[str, int]:
@@ -198,4 +204,4 @@ class File:
 class MemoryFileSystem(_MemoryFileSystem):
     @classmethod
     def _strip_protocol(cls, path):
-        return super()._strip_protocol(str(path))
+        return super()._strip_protocol(str(path))  # 去除协议部分

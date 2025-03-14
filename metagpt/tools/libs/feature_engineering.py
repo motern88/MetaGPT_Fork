@@ -26,17 +26,17 @@ TAGS = ["feature engineering", "machine learning"]
 @register_tool(tags=TAGS)
 class PolynomialExpansion(MLProcess):
     """
-    Add polynomial and interaction features from selected numeric columns to input DataFrame.
+    从选定的数值列中为输入 DataFrame 添加多项式和交互特征。
     """
 
     def __init__(self, cols: list, label_col: str, degree: int = 2):
         """
-        Initialize self.
+        初始化
 
-        Args:
-            cols (list): Columns for polynomial expansion.
-            label_col (str): Label column name.
-            degree (int, optional): The degree of the polynomial features. Defaults to 2.
+        参数:
+            cols (list): 用于多项式扩展的列。
+            label_col (str): 标签列名称。
+            degree (int, 可选): 多项式特征的度数。默认为 2。
         """
         self.cols = cols
         self.degree = degree
@@ -69,15 +69,15 @@ class PolynomialExpansion(MLProcess):
 @register_tool(tags=TAGS)
 class CatCount(MLProcess):
     """
-    Add value counts of a categorical column as new feature.
+    将分类列的值计数作为新特征添加。
     """
 
     def __init__(self, col: str):
         """
-        Initialize self.
+        初始化
 
-        Args:
-            col (str): Column for value counts.
+        参数:
+            col (str): 要进行值计数的列。
         """
         self.col = col
         self.encoder_dict = None
@@ -94,16 +94,16 @@ class CatCount(MLProcess):
 @register_tool(tags=TAGS)
 class TargetMeanEncoder(MLProcess):
     """
-    Encode a categorical column by the mean of the label column, and adds the result as a new feature.
+    通过标签列的均值对分类列进行编码，并将结果作为新特征添加。
     """
 
     def __init__(self, col: str, label: str):
         """
-        Initialize self.
+        初始化
 
-        Args:
-            col (str): Column to be mean encoded.
-            label (str): Predicted label column.
+        参数:
+            col (str): 要进行均值编码的列。
+            label (str): 预测标签列。
         """
         self.col = col
         self.label = label
@@ -121,18 +121,18 @@ class TargetMeanEncoder(MLProcess):
 @register_tool(tags=TAGS)
 class KFoldTargetMeanEncoder(MLProcess):
     """
-    Add a new feature to the DataFrame by k-fold mean encoding of a categorical column using the label column.
+    通过 K 折均值编码，将一个分类列的值与标签列进行编码，生成一个新特征。
     """
 
     def __init__(self, col: str, label: str, n_splits: int = 5, random_state: int = 2021):
         """
-        Initialize self.
+        初始化
 
-        Args:
-            col (str): Column to be k-fold mean encoded.
-            label (str): Predicted label column.
-            n_splits (int, optional): Number of splits for K-fold. Defaults to 5.
-            random_state (int, optional): Random seed. Defaults to 2021.
+        参数:
+            col (str): 要进行 K 折均值编码的列。
+            label (str): 预测标签列。
+            n_splits (int, 可选): K 折的数量。默认为 5。
+            random_state (int, 可选): 随机种子。默认为 2021。
         """
         self.col = col
         self.label = label
@@ -161,16 +161,16 @@ class KFoldTargetMeanEncoder(MLProcess):
 @register_tool(tags=TAGS)
 class CatCross(MLProcess):
     """
-    Add pairwise crossed features and convert them to numerical features.
+    添加两两交叉的特征，并将其转换为数值特征。
     """
 
     def __init__(self, cols: list, max_cat_num: int = 100):
         """
-        Initialize self.
+        初始化
 
-        Args:
-            cols (list): Columns to be pairwise crossed, at least 2 columns.
-            max_cat_num (int, optional): Maximum unique categories per crossed feature. Defaults to 100.
+        参数:
+            cols (list): 要交叉的列，至少 2 列。
+            max_cat_num (int, 可选): 每个交叉特征的最大类别数。默认为 100。
         """
         self.cols = cols
         self.max_cat_num = max_cat_num
@@ -180,14 +180,14 @@ class CatCross(MLProcess):
     @staticmethod
     def _cross_two(comb, df):
         """
-        Cross two columns and convert them to numerical features.
+        交叉两个列并将其转换为数值特征。
 
-        Args:
-            comb (tuple): The pair of columns to be crossed.
-            df (pd.DataFrame): The input DataFrame.
+        参数:
+            comb (tuple): 要交叉的列对。
+            df (pd.DataFrame): 输入的 DataFrame。
 
-        Returns:
-            tuple: The new column name and the crossed feature map.
+        返回:
+            tuple: 新列名和交叉特征映射。
         """
         new_col = f"{comb[0]}_{comb[1]}"
         new_col_combs = list(itertools.product(df[comb[0]].unique(), df[comb[1]].unique()))
@@ -209,7 +209,7 @@ class CatCross(MLProcess):
             new_col = f"{comb[0]}_{comb[1]}"
             _map = self.combs_map[new_col]
             new_df[new_col] = pd.Series(zip(new_df[comb[0]], new_df[comb[1]])).map(_map)
-            # set the unknown value to a new number
+            # 将未知的值设置为新数字
             new_df[new_col].fillna(max(_map.values()) + 1, inplace=True)
             new_df[new_col] = new_df[new_col].astype(int)
         return new_df
@@ -218,17 +218,17 @@ class CatCross(MLProcess):
 @register_tool(tags=TAGS)
 class GroupStat(MLProcess):
     """
-    Aggregate specified column in a DataFrame grouped by another column, adding new features named '<agg_col>_<agg_func>_by_<group_col>'.
+    对DataFrame中的指定列进行聚合，按另一列分组，添加新的特征，命名为 '<agg_col>_<agg_func>_by_<group_col>'。
     """
 
     def __init__(self, group_col: str, agg_col: str, agg_funcs: list):
         """
-        Initialize self.
+        初始化函数。
 
-        Args:
-            group_col (str): Column used for grouping.
-            agg_col (str): Column on which aggregation is performed.
-            agg_funcs (list): List of aggregation functions to apply, such as ['mean', 'std']. Each function must be supported by pandas.
+        参数:
+            group_col (str): 用于分组的列。
+            agg_col (str): 执行聚合操作的列。
+            agg_funcs (list): 要应用的聚合函数列表，如 ['mean', 'std']。每个函数必须是pandas支持的聚合函数。
         """
         self.group_col = group_col
         self.agg_col = agg_col
@@ -236,13 +236,16 @@ class GroupStat(MLProcess):
         self.group_df = None
 
     def fit(self, df: pd.DataFrame):
+        # 对数据按指定的列进行分组，并应用聚合函数
         group_df = df.groupby(self.group_col)[self.agg_col].agg(self.agg_funcs).reset_index()
+        # 重命名列，形成新的列名
         group_df.columns = [self.group_col] + [
             f"{self.agg_col}_{agg_func}_by_{self.group_col}" for agg_func in self.agg_funcs
         ]
         self.group_df = group_df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        # 将聚合结果与原始DataFrame合并
         new_df = df.merge(self.group_df, on=self.group_col, how="left")
         return new_df
 
@@ -250,26 +253,28 @@ class GroupStat(MLProcess):
 @register_tool(tags=TAGS)
 class SplitBins(MLProcess):
     """
-    Inplace binning of continuous data into intervals, returning integer-encoded bin identifiers directly.
+    对连续数据进行分箱，直接返回整数编码的分箱标识符。
     """
 
     def __init__(self, cols: list, strategy: str = "quantile"):
         """
-        Initialize self.
+        初始化函数。
 
-        Args:
-            cols (list): Columns to be binned inplace.
-            strategy (str, optional): Strategy used to define the widths of the bins. Enum: ['quantile', 'uniform', 'kmeans']. Defaults to 'quantile'.
+        参数:
+            cols (list): 需要进行分箱的列。
+            strategy (str, 可选): 用于定义分箱宽度的策略。可选策略包括['quantile', 'uniform', 'kmeans']，默认使用'quantile'。
         """
         self.cols = cols
         self.strategy = strategy
         self.encoder = None
 
     def fit(self, df: pd.DataFrame):
+        # 使用指定的策略和分箱方式进行分箱
         self.encoder = KBinsDiscretizer(strategy=self.strategy, encode="ordinal")
         self.encoder.fit(df[self.cols].fillna(0))
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        # 对数据进行分箱转换
         new_df = df.copy()
         new_df[self.cols] = self.encoder.transform(new_df[self.cols].fillna(0))
         return new_df
@@ -278,16 +283,16 @@ class SplitBins(MLProcess):
 # @register_tool(tags=TAGS)
 class ExtractTimeComps(MLProcess):
     """
-    Extract time components from a datetime column and add them as new features.
+    从datetime列中提取时间组件，并将其作为新特征添加到DataFrame中。
     """
 
     def __init__(self, time_col: str, time_comps: list):
         """
-        Initialize self.
+        初始化函数。
 
-        Args:
-            time_col (str): The name of the column containing time data.
-            time_comps (list): List of time components to extract. Each component must be in ['year', 'month', 'day', 'hour', 'dayofweek', 'is_weekend'].
+        参数:
+            time_col (str): 包含时间数据的列名。
+            time_comps (list): 要提取的时间组件的列表。每个组件必须是 ['year', 'month', 'day', 'hour', 'dayofweek', 'is_weekend'] 之一。
         """
         self.time_col = time_col
         self.time_comps = time_comps
@@ -318,7 +323,7 @@ class ExtractTimeComps(MLProcess):
 @register_tool(tags=TAGS)
 class GeneralSelection(MLProcess):
     """
-    Drop all nan feats and feats with only one unique value.
+    删除所有包含NaN值的特征和只有一个唯一值的特征。
     """
 
     def __init__(self, label_col: str):
@@ -343,6 +348,7 @@ class GeneralSelection(MLProcess):
         self.feats = feats
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        # 只返回选中的特征和标签列
         new_df = df[self.feats + [self.label_col]]
         return new_df
 
@@ -351,16 +357,16 @@ class GeneralSelection(MLProcess):
 # @register_tool(tags=TAGS)
 class TreeBasedSelection(MLProcess):
     """
-    Select features based on tree-based model and remove features with low importance.
+    基于树模型选择特征，并移除低重要性的特征。
     """
 
     def __init__(self, label_col: str, task_type: str):
         """
-        Initialize self.
+        初始化函数。
 
-        Args:
-            label_col (str): Label column name.
-            task_type (str): Task type, 'cls' for classification, 'mcls' for multi-class classification, 'reg' for regression.
+        参数:
+            label_col (str): 标签列名。
+            task_type (str): 任务类型，'cls'表示分类，'mcls'表示多分类，'reg'表示回归。
         """
         self.label_col = label_col
         self.task_type = task_type
@@ -398,6 +404,7 @@ class TreeBasedSelection(MLProcess):
         self.feats.append(self.label_col)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        # 只返回根据特征重要性选择的特征
         new_df = df[self.feats]
         return new_df
 
@@ -405,30 +412,51 @@ class TreeBasedSelection(MLProcess):
 @register_tool(tags=TAGS)
 class VarianceBasedSelection(MLProcess):
     """
-    Select features based on variance and remove features with low variance.
+    基于方差选择特征，移除低方差特征。
     """
 
     def __init__(self, label_col: str, threshold: float = 0):
         """
-        Initialize self.
+        初始化函数。
 
-        Args:
-            label_col (str): Label column name.
-            threshold (float, optional): Threshold for variance. Defaults to 0.
+        参数：
+            label_col (str): 标签列的名称。
+            threshold (float, optional): 方差阈值。默认为0。
         """
-        self.label_col = label_col
-        self.threshold = threshold
-        self.feats = None
-        self.selector = VarianceThreshold(threshold=self.threshold)
+        self.label_col = label_col  # 标签列的名称
+        self.threshold = threshold  # 方差阈值
+        self.feats = None  # 存储选择的特征列
+        self.selector = VarianceThreshold(threshold=self.threshold)  # 方差选择器
 
     def fit(self, df: pd.DataFrame):
+        """
+        训练方差选择器。
+
+        参数：
+            df (pd.DataFrame): 输入的 DataFrame。
+        """
+        # 获取所有数值型特征列
         num_cols = df.select_dtypes(include=np.number).columns.tolist()
+        # 排除标签列
         cols = [f for f in num_cols if f not in [self.label_col]]
 
+        # 训练方差选择器
         self.selector.fit(df[cols])
+        # 根据方差选择特征
         self.feats = df[cols].columns[self.selector.get_support(indices=True)].tolist()
+        # 将标签列添加到特征列中
         self.feats.append(self.label_col)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        对数据进行转换，返回选择的特征列。
+
+        参数：
+            df (pd.DataFrame): 输入的 DataFrame。
+
+        返回：
+            pd.DataFrame: 包含选择的特征的 DataFrame。
+        """
+        # 返回包含选择特征列的 DataFrame
         new_df = df[self.feats]
         return new_df

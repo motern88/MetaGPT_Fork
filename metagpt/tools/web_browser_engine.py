@@ -13,86 +13,82 @@ from metagpt.utils.parse_html import WebPage
 
 
 class WebBrowserEngine(BaseModel):
-    """Defines a web browser engine configuration for automated browsing and data extraction.
+    """定义一个网页浏览器引擎配置，用于自动化浏览和数据提取。
 
-    This class encapsulates the configuration and operational logic for different web browser engines,
-    such as Playwright, Selenium, or custom implementations. It provides a unified interface to run
-    browser automation tasks.
+    该类封装了不同网页浏览器引擎（如 Playwright、Selenium 或自定义实现）的配置和操作逻辑，
+    提供了一个统一的接口来运行浏览器自动化任务。
 
-    Attributes:
-        model_config: Configuration dictionary allowing arbitrary types and extra fields.
-        engine: The type of web browser engine to use.
-        run_func: An optional coroutine function to run the browser engine.
-        proxy: An optional proxy server URL to use with the browser engine.
+    属性：
+        model_config: 配置字典，允许任意类型和额外字段。
+        engine: 要使用的网页浏览器引擎类型。
+        run_func: 可选的协程函数，用于运行浏览器引擎。
+        proxy: 可选的代理服务器 URL，用于浏览器引擎。
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
-    engine: WebBrowserEngineType = WebBrowserEngineType.PLAYWRIGHT
-    run_func: Annotated[
+    engine: WebBrowserEngineType = WebBrowserEngineType.PLAYWRIGHT  # 浏览器引擎类型，默认使用 Playwright
+    run_func: Annotated[  # 可选的协程函数，运行浏览器引擎的任务
         Optional[Callable[..., Coroutine[Any, Any, Union[WebPage, list[WebPage]]]]],
         Field(exclude=True),
     ] = None
-    proxy: Optional[str] = None
+    proxy: Optional[str] = None  # 可选的代理服务器 URL
 
     @model_validator(mode="after")
     def validate_extra(self):
-        """Validates and processes extra configuration data after model initialization.
+        """验证并处理模型初始化后的额外配置数据。
 
-        This method is automatically called by Pydantic to validate and process any extra configuration
-        data provided to the model. It ensures that the extra data is properly integrated into the model's
-        configuration and operational logic.
+        该方法由 Pydantic 自动调用，用于验证和处理提供给模型的任何额外配置数据。
+        确保额外数据正确集成到模型的配置和操作逻辑中。
 
-        Returns:
-            The instance itself after processing the extra data.
+        返回：
+            处理后的模型实例。
         """
         data = self.model_dump(exclude={"engine"}, exclude_none=True, exclude_defaults=True)
         if self.model_extra:
-            data.update(self.model_extra)
-        self._process_extra(**data)
+            data.update(self.model_extra)  # 将额外的数据合并到配置中
+        self._process_extra(**data)  # 处理额外的配置数据
         return self
 
     def _process_extra(self, **kwargs):
-        """Processes extra configuration data to set up the browser engine run function.
+        """处理额外配置数据以设置浏览器引擎的运行函数。
 
-        Depending on the specified engine type, this method dynamically imports and configures
-        the appropriate browser engine wrapper and its run function.
+        根据指定的引擎类型，此方法动态导入并配置相应的浏览器引擎封装器及其运行函数。
 
-        Args:
-            **kwargs: Arbitrary keyword arguments representing extra configuration data.
+        参数：
+            **kwargs: 任意关键字参数，表示额外的配置数据。
 
-        Raises:
-            NotImplementedError: If the engine type is not supported.
+        异常：
+            NotImplementedError: 如果引擎类型不被支持，则抛出该异常。
         """
         if self.engine is WebBrowserEngineType.PLAYWRIGHT:
-            module = "metagpt.tools.web_browser_engine_playwright"
+            module = "metagpt.tools.web_browser_engine_playwright"  # 使用 Playwright 引擎
             run_func = importlib.import_module(module).PlaywrightWrapper(**kwargs).run
         elif self.engine is WebBrowserEngineType.SELENIUM:
-            module = "metagpt.tools.web_browser_engine_selenium"
+            module = "metagpt.tools.web_browser_engine_selenium"  # 使用 Selenium 引擎
             run_func = importlib.import_module(module).SeleniumWrapper(**kwargs).run
         elif self.engine is WebBrowserEngineType.CUSTOM:
-            run_func = self.run_func
+            run_func = self.run_func  # 使用自定义引擎
         else:
-            raise NotImplementedError
-        self.run_func = run_func
+            raise NotImplementedError  # 如果引擎类型不支持，则抛出异常
+        self.run_func = run_func  # 设置运行函数
 
     @classmethod
     def from_browser_config(cls, config: BrowserConfig, **kwargs):
-        """Creates a WebBrowserEngine instance from a BrowserConfig object and additional keyword arguments.
+        """通过 BrowserConfig 对象和额外的关键字参数创建 WebBrowserEngine 实例。
 
-        This class method facilitates the creation of a WebBrowserEngine instance by extracting
-        configuration data from a BrowserConfig object and optionally merging it with additional
-        keyword arguments.
+        该类方法通过从 BrowserConfig 对象中提取配置数据，并可选地与额外的关键字参数合并，
+        来创建 WebBrowserEngine 实例。
 
-        Args:
-            config: A BrowserConfig object containing base configuration data.
-            **kwargs: Optional additional keyword arguments to override or extend the configuration.
+        参数：
+            config: 一个包含基础配置数据的 BrowserConfig 对象。
+            **kwargs: 可选的额外关键字参数，用于覆盖或扩展配置。
 
-        Returns:
-            A new instance of WebBrowserEngine configured according to the provided arguments.
+        返回：
+            根据提供的配置参数创建的 WebBrowserEngine 实例。
         """
-        data = config.model_dump()
-        return cls(**data, **kwargs)
+        data = config.model_dump()  # 提取 BrowserConfig 配置数据
+        return cls(**data, **kwargs)  # 创建 WebBrowserEngine 实例
 
     @overload
     async def run(self, url: str, per_page_timeout: float = None) -> WebPage:
@@ -103,17 +99,17 @@ class WebBrowserEngine(BaseModel):
         ...
 
     async def run(self, url: str, *urls: str, per_page_timeout: float = None) -> WebPage | list[WebPage]:
-        """Runs the browser engine to load one or more web pages.
+        """运行浏览器引擎以加载一个或多个网页。
 
-        This method is the implementation of the overloaded run signatures. It delegates the task
-        of loading web pages to the configured run function, handling either a single URL or multiple URLs.
+        该方法是重载的 run 方法的实现，它将加载网页的任务委托给配置的运行函数，
+        处理单个 URL 或多个 URL 的加载。
 
-        Args:
-            url: The URL of the first web page to load.
-            *urls: Additional URLs of web pages to load, if any.
-            per_page_timeout: The maximum time for fetching a single page in seconds.
+        参数：
+            url: 第一个网页的 URL。
+            *urls: 其他网页的 URL（如果有的话）。
+            per_page_timeout: 每个网页的最大加载时间（秒）。
 
-        Returns:
-            A WebPage object if a single URL is provided, or a list of WebPage objects if multiple URLs are provided.
+        返回：
+            如果提供单个 URL，则返回 WebPage 对象；如果提供多个 URL，则返回 WebPage 对象列表。
         """
         return await self.run_func(url, *urls, per_page_timeout=per_page_timeout)

@@ -24,50 +24,55 @@ from metagpt.utils.tree import tree
 
 async def repo_to_markdown(repo_path: str | Path, output: str | Path = None) -> str:
     """
-    Convert a local repository into a markdown representation.
+    将本地仓库转换为Markdown格式。
 
-    This function takes a path to a local repository and generates a markdown representation of the repository structure,
-    including directory trees and file listings.
+    该函数接受本地仓库的路径，并生成仓库结构的Markdown表示，包括目录树和文件列表。
 
-    Args:
-        repo_path (str | Path): The path to the local repository.
-        output (str | Path, optional): The path to save the generated markdown file. Defaults to None.
+    参数：
+        repo_path (str | Path): 本地仓库的路径。
+        output (str | Path, optional): 生成的Markdown文件保存路径。默认为None。
 
-    Returns:
-        str: The markdown representation of the repository.
+    返回：
+        str: 仓库的Markdown表示。
     """
     repo_path = Path(repo_path).resolve()
     gitignore_file = repo_path / ".gitignore"
 
+    # 写入目录树
     markdown = await _write_dir_tree(repo_path=repo_path, gitignore=gitignore_file)
 
+    # 解析.gitignore文件中的规则
     gitignore_rules = parse_gitignore(full_path=str(gitignore_file)) if gitignore_file.exists() else None
+    # 写入仓库中的文件列表
     markdown += await _write_files(repo_path=repo_path, gitignore_rules=gitignore_rules)
 
     if output:
         output_file = Path(output).resolve()
         output_file.parent.mkdir(parents=True, exist_ok=True)
         await awrite(filename=str(output_file), data=markdown, encoding="utf-8")
-        logger.info(f"save: {output_file}")
+        logger.info(f"保存到: {output_file}")
     return markdown
+
 
 
 async def _write_dir_tree(repo_path: Path, gitignore: Path) -> str:
     try:
+        # 获取目录树内容
         content = await tree(repo_path, gitignore, run_command=True)
     except Exception as e:
-        logger.info(f"{e}, using safe mode.")
+        logger.info(f"{e}, 使用安全模式.")
         content = await tree(repo_path, gitignore, run_command=False)
 
-    doc = f"## Directory Tree\n```text\n{content}\n```\n---\n\n"
+    doc = f"## 目录树\n```text\n{content}\n```\n---\n\n"
     return doc
 
 
 async def _write_files(repo_path, gitignore_rules=None) -> str:
     filenames = list_files(repo_path)
     markdown = ""
-    pattern = r"^\..*"  # Hidden folders/files
+    pattern = r"^\..*"  # 隐藏的文件夹/文件
     for filename in filenames:
+        # 如果文件在.gitignore中，则跳过
         if gitignore_rules and gitignore_rules(str(filename)):
             continue
         ignore = False
@@ -82,15 +87,18 @@ async def _write_files(repo_path, gitignore_rules=None) -> str:
 
 
 async def _write_file(filename: Path, repo_path: Path) -> str:
+    # 检查文件是否为文本文件
     is_text, mime_type = await is_text_file(filename)
     if not is_text:
-        logger.info(f"Ignore content: {filename}")
+        logger.info(f"忽略内容: {filename}")
         return ""
 
     try:
+        # 获取文件的相对路径，并生成Markdown
         relative_path = filename.relative_to(repo_path)
         markdown = f"## {relative_path}\n"
         content = await aread(filename, encoding="utf-8")
+        # 转义Markdown中的特殊字符
         content = content.replace("```", "\\`\\`\\`").replace("---", "\\-\\-\\-")
         code_block_type = get_markdown_codeblock_type(filename.name)
         markdown += f"```{code_block_type}\n{content}\n```\n---\n\n"
@@ -102,14 +110,14 @@ async def _write_file(filename: Path, repo_path: Path) -> str:
 
 async def is_text_file(filename: Union[str, Path]) -> Tuple[bool, str]:
     """
-    Determines if the specified file is a text file based on its MIME type.
+    判断指定文件是否为文本文件，依据其MIME类型。
 
-    Args:
-        filename (Union[str, Path]): The path to the file.
+    参数：
+        filename (Union[str, Path]): 文件的路径。
 
-    Returns:
-        Tuple[bool, str]: A tuple where the first element indicates if the file is a text file
-        (True for text file, False otherwise), and the second element is the MIME type of the file.
+    返回：
+        Tuple[bool, str]: 返回一个元组，第一个元素表示文件是否为文本文件（True表示是文本文件，False表示不是），
+                          第二个元素为文件的MIME类型。
     """
     pass_set = {
         "application/json",

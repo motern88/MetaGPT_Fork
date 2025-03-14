@@ -9,19 +9,19 @@ def reduce_message_length(
     system_text: str,
     reserved: int = 0,
 ) -> str:
-    """Reduce the length of concatenated message segments to fit within the maximum token size.
+    """减少拼接的消息段长度，以适应最大令牌大小。
 
-    Args:
-        msgs: A generator of strings representing progressively shorter valid prompts.
-        model_name: The name of the encoding to use. (e.g., "gpt-3.5-turbo")
-        system_text: The system prompts.
-        reserved: The number of reserved tokens.
+    参数:
+        msgs: 字符串生成器，表示逐渐缩短的有效提示。
+        model_name: 用于编码的模型名称（例如 "gpt-3.5-turbo"）。
+        system_text: 系统提示文本。
+        reserved: 保留的令牌数。
 
-    Returns:
-        The concatenated message segments reduced to fit within the maximum token size.
+    返回:
+        拼接后的消息段，已减少到适应最大令牌大小。
 
-    Raises:
-        RuntimeError: If it fails to reduce the concatenated message length.
+    异常:
+        RuntimeError: 如果未能成功减少消息长度，则抛出此异常。
     """
     max_token = TOKEN_MAX.get(model_name, 2048) - count_output_tokens(system_text, model_name) - reserved
     for msg in msgs:
@@ -38,24 +38,24 @@ def generate_prompt_chunk(
     system_text: str,
     reserved: int = 0,
 ) -> Generator[str, None, None]:
-    """Split the text into chunks of a maximum token size.
+    """将文本拆分成最大令牌大小的块。
 
-    Args:
-        text: The text to split.
-        prompt_template: The template for the prompt, containing a single `{}` placeholder. For example, "### Reference\n{}".
-        model_name: The name of the encoding to use. (e.g., "gpt-3.5-turbo")
-        system_text: The system prompts.
-        reserved: The number of reserved tokens.
+    参数:
+        text: 需要拆分的文本。
+        prompt_template: 提示的模板，包含一个 `{}` 占位符，例如 "### Reference\n{}"。
+        model_name: 用于编码的模型名称（例如 "gpt-3.5-turbo"）。
+        system_text: 系统提示文本。
+        reserved: 保留的令牌数。
 
-    Yields:
-        The chunk of text.
+    返回:
+        生成每个文本块。
     """
     paragraphs = text.splitlines(keepends=True)
     current_token = 0
     current_lines = []
 
     reserved = reserved + count_output_tokens(prompt_template + system_text, model_name)
-    # 100 is a magic number to ensure the maximum context length is not exceeded
+    # 100 是一个“魔法数字”，确保不会超出最大上下文长度
     max_token = TOKEN_MAX.get(model_name, 2048) - reserved - 100
 
     while paragraphs:
@@ -77,15 +77,15 @@ def generate_prompt_chunk(
 
 
 def split_paragraph(paragraph: str, sep: str = ".,", count: int = 2) -> list[str]:
-    """Split a paragraph into multiple parts.
+    """将段落分割成多个部分。
 
-    Args:
-        paragraph: The paragraph to split.
-        sep: The separator character.
-        count: The number of parts to split the paragraph into.
+    参数:
+        paragraph: 需要分割的段落。
+        sep: 用于分割的分隔符字符。
+        count: 将段落分割成的部分数。
 
-    Returns:
-        A list of split parts of the paragraph.
+    返回:
+        一个包含分割后的段落部分的列表。
     """
     for i in sep:
         sentences = list(_split_text_with_ends(paragraph, i))
@@ -97,18 +97,27 @@ def split_paragraph(paragraph: str, sep: str = ".,", count: int = 2) -> list[str
 
 
 def decode_unicode_escape(text: str) -> str:
-    """Decode a text with unicode escape sequences.
+    """解码带有 Unicode 转义序列的文本。
 
-    Args:
-        text: The text to decode.
+    参数:
+        text: 需要解码的文本。
 
-    Returns:
-        The decoded text.
+    返回:
+        解码后的文本。
     """
     return text.encode("utf-8").decode("unicode_escape", "ignore")
 
 
 def _split_by_count(lst: Sequence, count: int):
+    """将列表按指定的数量分割。
+
+    参数:
+        lst: 需要分割的列表。
+        count: 将列表分割成的部分数。
+
+    返回:
+        生成分割后的部分。
+    """
     avg = len(lst) // count
     remainder = len(lst) % count
     start = 0
@@ -119,6 +128,15 @@ def _split_by_count(lst: Sequence, count: int):
 
 
 def _split_text_with_ends(text: str, sep: str = "."):
+    """按分隔符将文本分割成多个部分。
+
+    参数:
+        text: 需要分割的文本。
+        sep: 用于分割的分隔符。
+
+    返回:
+        生成分割后的部分。
+    """
     parts = []
     for i in text:
         parts.append(i)

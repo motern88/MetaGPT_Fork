@@ -102,7 +102,7 @@ data	object	Yes
 
 
 class UTGenerator:
-    """UT Generator: Construct UT through API documentation"""
+    """UT生成器：通过API文档构建单元测试"""
 
     def __init__(
         self,
@@ -112,32 +112,39 @@ class UTGenerator:
         chatgpt_method: str = "API",
         template_prefix=YFT_PROMPT_PREFIX,
     ) -> None:
-        """Initialize UT Generator
+        """初始化UT生成器
 
-        Args:
-            swagger_file: path to the swagger file
-            ut_py_path: path to store test cases
-            questions_path: path to store the template, facilitating subsequent checks
-            chatgpt_method: API method
-            template_prefix: use the template, default is YFT_UT_PROMPT
+        参数：
+            swagger_file: Swagger文件路径
+            ut_py_path: 存储测试用例的路径
+            questions_path: 存储模板的路径，方便后续检查
+            chatgpt_method: 使用的ChatGPT方法，默认为API
+            template_prefix: 使用的模板，默认为YFT_UT_PROMPT
         """
         self.swagger_file = swagger_file
         self.ut_py_path = ut_py_path
         self.questions_path = questions_path
-        assert chatgpt_method in ["API"], "Invalid chatgpt_method"
+        assert chatgpt_method in ["API"], "无效的chatgpt_method"
         self.chatgpt_method = chatgpt_method
 
-        # ICL: In-Context Learning, provide an example here for GPT to mimic
+        # ICL：上下文学习，提供一个示例供GPT模仿
         self.icl_sample = ICL_SAMPLE
         self.template_prefix = template_prefix
 
     def get_swagger_json(self) -> dict:
-        """Load Swagger JSON from a local file"""
+        """从本地文件加载Swagger JSON"""
         with open(self.swagger_file, "r", encoding="utf-8") as file:
             swagger_json = json.load(file)
         return swagger_json
 
     def __para_to_str(self, prop, required, name=""):
+        """将参数转换为字符串格式
+
+        参数：
+            prop: 参数的属性字典
+            required: 是否是必需的
+            name: 参数的名称
+        """
         name = name or prop["name"]
         ptype = prop["type"]
         title = prop.get("title", "")
@@ -145,26 +152,33 @@ class UTGenerator:
         return f'{name}\t{ptype}\t{"Yes" if required else "No"}\t{title}\t{desc}'
 
     def _para_to_str(self, prop):
+        """将参数转换为字符串格式，默认参数为非必需的"""
         required = prop.get("required", False)
         return self.__para_to_str(prop, required)
 
     def para_to_str(self, name, prop, prop_object_required):
+        """处理特定参数的字符串转换
+
+        参数：
+            name: 参数名称
+            prop: 参数属性
+            prop_object_required: 是否是必需的
+        """
         required = name in prop_object_required
         return self.__para_to_str(prop, required, name)
 
     def build_object_properties(self, node, prop_object_required, level: int = 0) -> str:
-        """Recursively output properties of object and array[object] types
+        """递归输出对象和数组[对象]类型的属性
 
-        Args:
-            node (_type_): value of the child item
-            prop_object_required (_type_): whether it's a required field
-            level: current recursion depth
+        参数：
+            node: 子项的值
+            prop_object_required: 是否为必需字段
+            level: 当前递归深度
         """
-
         doc = ""
 
         def dive_into_object(node):
-            """If it's an object type, recursively output its properties"""
+            """如果是对象类型，递归输出其属性"""
             if node.get("type") == "object":
                 sub_properties = node.get("properties", {})
                 return self.build_object_properties(sub_properties, prop_object_required, level=level + 1)
@@ -187,10 +201,10 @@ class UTGenerator:
         return doc
 
     def get_tags_mapping(self) -> dict:
-        """Process tag and path mappings
+        """处理标签和路径的映射关系
 
-        Returns:
-            Dict: mapping of tag to path
+        返回：
+            dict: 标签到路径的映射
         """
         swagger_data = self.get_swagger_json()
         paths = swagger_data["paths"]
@@ -208,80 +222,87 @@ class UTGenerator:
         return tags
 
     async def generate_ut(self, include_tags) -> bool:
-        """Generate test case files"""
-        tags = self.get_tags_mapping()
+        """生成测试用例文件"""
+        tags = self.get_tags_mapping()  # 获取标签与路径的映射
+        # 遍历所有标签及其对应的路径
         for tag, paths in tags.items():
+            # 如果未指定标签或当前标签在include_tags中，则生成测试用例
             if include_tags is None or tag in include_tags:
-                await self._generate_ut(tag, paths)
+                await self._generate_ut(tag, paths)  # 生成指定标签下的测试用例
         return True
 
     def build_api_doc(self, node: dict, path: str, method: str) -> str:
-        summary = node["summary"]
+        """构建API文档"""
+        summary = node["summary"]  # 获取API的摘要
 
-        doc = f"API Name: {summary}\nAPI Path: {path}\nMethod: {method.upper()}\n"
-        doc += "\nRequest Parameters:\n"
-        if "parameters" in node:
+        # 创建API文档的基本信息
+        doc = f"API 名称: {summary}\nAPI 路径: {path}\n方法: {method.upper()}\n"
+        doc += "\n请求参数:\n"
+        if "parameters" in node:  # 如果有请求参数
             parameters = node["parameters"]
-            doc += "Path Parameters:\n"
+            doc += "路径参数:\n"
 
             # param["in"]: path / formData / body / query / header
             for param in parameters:
-                if param["in"] == "path":
+                if param["in"] == "path":  # 如果是路径参数
                     doc += f'{param["name"]} \n'
 
-            doc += "\nBody Parameters:\n"
-            doc += "Name\tType\tRequired\tDefault Value\tRemarks\n"
+            doc += "\n请求体参数:\n"
+            doc += "名称\t类型\t是否必需\t默认值\t备注\n"
             for param in parameters:
-                if param["in"] == "body":
+                if param["in"] == "body":  # 如果是请求体参数
                     schema = param.get("schema", {})
                     prop_properties = schema.get("properties", {})
                     prop_required = schema.get("required", [])
-                    doc += self.build_object_properties(prop_properties, prop_required)
+                    doc += self.build_object_properties(prop_properties, prop_required)  # 递归处理对象属性
                 else:
-                    doc += self.build_object_properties(param, [])
+                    doc += self.build_object_properties(param, [])  # 处理其他类型的参数
 
-        # Display response data information
-        doc += "\nResponse Data:\n"
-        doc += "Name\tType\tRequired\tDefault Value\tRemarks\n"
+        # 展示响应数据的信息
+        doc += "\n响应数据:\n"
+        doc += "名称\t类型\t是否必需\t默认值\t备注\n"
         responses = node["responses"]
-        response = responses.get("200", {})
+        response = responses.get("200", {})  # 获取200响应的schema
         schema = response.get("schema", {})
         properties = schema.get("properties", {})
         required = schema.get("required", {})
 
-        doc += self.build_object_properties(properties, required)
+        doc += self.build_object_properties(properties, required)  # 处理响应数据的属性
         doc += "\n"
         doc += "```"
 
         return doc
 
     async def ask_gpt_and_save(self, question: str, tag: str, fname: str):
-        """Generate questions and store both questions and answers"""
-        messages = [self.icl_sample, question]
-        result = await self.gpt_msgs_to_code(messages=messages)
+        """生成问题并保存问题和答案"""
+        messages = [self.icl_sample, question]  # 将示例和问题拼接成消息
+        result = await self.gpt_msgs_to_code(messages=messages)  # 获取GPT生成的代码
 
+        # 将问题保存到指定路径
         await awrite(Path(self.questions_path) / tag / f"{fname}.txt", question)
-        data = result.get("code", "") if result else ""
+        data = result.get("code", "") if result else ""  # 获取生成的代码
+        # 将生成的代码保存到指定路径
         await awrite(Path(self.ut_py_path) / tag / f"{fname}.py", data)
 
     async def _generate_ut(self, tag, paths):
-        """Process the structure under a data path
+        """处理路径下的结构
 
-        Args:
-            tag (_type_): module name
-            paths (_type_): Path Object
+        参数：
+            tag (_type_): 模块名称
+            paths (_type_): 路径对象
         """
+        # 遍历每个路径和对应的操作方法
         for path, path_obj in paths.items():
             for method, node in path_obj.items():
-                summary = node["summary"]
-                question = self.template_prefix
-                question += self.build_api_doc(node, path, method)
-                await self.ask_gpt_and_save(question, tag, summary)
+                summary = node["summary"]  # 获取API的摘要
+                question = self.template_prefix  # 获取模板前缀
+                question += self.build_api_doc(node, path, method)  # 构建API文档
+                await self.ask_gpt_and_save(question, tag, summary)  # 生成并保存测试用例
 
     async def gpt_msgs_to_code(self, messages: list) -> str:
-        """Choose based on different calling methods"""
+        """根据不同调用方式选择处理方法"""
         result = ""
         if self.chatgpt_method == "API":
-            result = await GPTAPI(config.get_openai_llm()).aask_code(messages=messages)
+            result = await GPTAPI(config.get_openai_llm()).aask_code(messages=messages)  # 调用API获取代码
 
         return result

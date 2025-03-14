@@ -21,180 +21,180 @@ from metagpt.utils.common import concat_namespace, split_namespace
 
 
 class GraphKeyword:
-    """Basic words for a Graph database.
+    """图数据库的基本词汇。
 
-    This class defines a set of basic words commonly used in the context of a Graph database.
+    该类定义了一组常用于图数据库上下文中的基本词汇。
     """
 
-    IS = "is"
-    OF = "Of"
-    ON = "On"
-    CLASS = "class"
-    FUNCTION = "function"
-    HAS_FUNCTION = "has_function"
-    SOURCE_CODE = "source_code"
-    NULL = "<null>"
-    GLOBAL_VARIABLE = "global_variable"
-    CLASS_METHOD = "class_method"
-    CLASS_PROPERTY = "class_property"
-    HAS_CLASS_METHOD = "has_class_method"
-    HAS_CLASS_PROPERTY = "has_class_property"
-    HAS_CLASS = "has_class"
-    HAS_DETAIL = "has_detail"
-    HAS_PAGE_INFO = "has_page_info"
-    HAS_CLASS_VIEW = "has_class_view"
-    HAS_SEQUENCE_VIEW = "has_sequence_view"
-    HAS_SEQUENCE_VIEW_VER = "has_sequence_view_ver"
-    HAS_CLASS_USE_CASE = "has_class_use_case"
-    IS_COMPOSITE_OF = "is_composite_of"
-    IS_AGGREGATE_OF = "is_aggregate_of"
-    HAS_PARTICIPANT = "has_participant"
-    HAS_SUMMARY = "has_summary"
-    HAS_INSTALL = "has_install"
-    HAS_CONFIG = "has_config"
-    HAS_USAGE = "has_usage"
+    IS = "is"  # 表示“是”
+    OF = "Of"  # 表示“的”
+    ON = "On"  # 表示“在”
+    CLASS = "class"  # 表示“类”
+    FUNCTION = "function"  # 表示“函数”
+    HAS_FUNCTION = "has_function"  # 表示“拥有函数”
+    SOURCE_CODE = "source_code"  # 表示“源代码”
+    NULL = "<null>"  # 表示“空”或“无”
+    GLOBAL_VARIABLE = "global_variable"  # 表示“全局变量”
+    CLASS_METHOD = "class_method"  # 表示“类方法”
+    CLASS_PROPERTY = "class_property"  # 表示“类属性”
+    HAS_CLASS_METHOD = "has_class_method"  # 表示“拥有类方法”
+    HAS_CLASS_PROPERTY = "has_class_property"  # 表示“拥有类属性”
+    HAS_CLASS = "has_class"  # 表示“拥有类”
+    HAS_DETAIL = "has_detail"  # 表示“拥有详细信息”
+    HAS_PAGE_INFO = "has_page_info"  # 表示“拥有页面信息”
+    HAS_CLASS_VIEW = "has_class_view"  # 表示“拥有类视图”
+    HAS_SEQUENCE_VIEW = "has_sequence_view"  # 表示“拥有序列视图”
+    HAS_SEQUENCE_VIEW_VER = "has_sequence_view_ver"  # 表示“拥有序列视图版本”
+    HAS_CLASS_USE_CASE = "has_class_use_case"  # 表示“拥有类用例”
+    IS_COMPOSITE_OF = "is_composite_of"  # 表示“是...的组合”
+    IS_AGGREGATE_OF = "is_aggregate_of"  # 表示“是...的聚合”
+    HAS_PARTICIPANT = "has_participant"  # 表示“拥有参与者”
+    HAS_SUMMARY = "has_summary"  # 表示“拥有摘要”
+    HAS_INSTALL = "has_install"  # 表示“拥有安装”
+    HAS_CONFIG = "has_config"  # 表示“拥有配置”
+    HAS_USAGE = "has_usage"  # 表示“拥有使用情况”
 
 
 class SPO(BaseModel):
-    """Graph repository record type.
+    """图数据库记录类型。
 
-    This class represents a record in a graph repository with three components:
-    - Subject: The subject of the triple.
-    - Predicate: The predicate describing the relationship between the subject and the object.
-    - Object: The object of the triple.
+    该类表示图数据库中的一条记录，包含三个组成部分：
+    - 主体 (Subject): 三元组中的主体。
+    - 谓词 (Predicate): 描述主体和客体之间关系的谓词。
+    - 客体 (Object): 三元组中的客体。
 
-    Attributes:
-        subject (str): The subject of the triple.
-        predicate (str): The predicate describing the relationship.
-        object_ (str): The object of the triple.
+    属性：
+        subject (str): 三元组中的主体。
+        predicate (str): 描述主体和客体关系的谓词。
+        object_ (str): 三元组中的客体。
 
-    Example:
+    示例：
         spo_record = SPO(subject="Node1", predicate="connects_to", object_="Node2")
-        # Represents a triple: Node1 connects_to Node2
+        # 表示一个三元组：Node1 连接到 Node2
     """
 
-    subject: str
-    predicate: str
-    object_: str
+    subject: str  # 主体，表示三元组中的主体部分
+    predicate: str  # 谓词，表示主体和客体之间的关系
+    object_: str  # 客体，表示三元组中的客体部分
 
 
 class GraphRepository(ABC):
-    """Abstract base class for a Graph Repository.
+    """图数据库仓库的抽象基类。
 
-    This class defines the interface for a graph repository, providing methods for inserting, selecting,
-    deleting, and saving graph data. Concrete implementations of this class must provide functionality
-    for these operations.
+    该类定义了图数据库仓库的接口，提供了插入、选择、删除和保存图数据的方法。
+    具体的实现类必须提供这些操作的功能。
     """
 
     def __init__(self, name: str, **kwargs):
-        self._repo_name = name
-        self._kwargs = kwargs
+        self._repo_name = name  # 仓库的名称
+        self._kwargs = kwargs  # 其他可能的配置参数
 
     @abstractmethod
     async def insert(self, subject: str, predicate: str, object_: str):
-        """Insert a new triple into the graph repository.
+        """向图数据库仓库插入一条新的三元组。
 
-        Args:
-            subject (str): The subject of the triple.
-            predicate (str): The predicate describing the relationship.
-            object_ (str): The object of the triple.
+        参数：
+            subject (str): 三元组的主体。
+            predicate (str): 描述主体和客体关系的谓词。
+            object_ (str): 三元组的客体。
 
-        Example:
+        示例：
             await my_repository.insert(subject="Node1", predicate="connects_to", object_="Node2")
-            # Inserts a triple: Node1 connects_to Node2 into the graph repository.
+            # 插入一条三元组：Node1 连接到 Node2 到图数据库仓库中。
         """
         pass
 
     @abstractmethod
     async def select(self, subject: str = None, predicate: str = None, object_: str = None) -> List[SPO]:
-        """Retrieve triples from the graph repository based on specified criteria.
+        """根据指定的条件从图数据库仓库中检索三元组。
 
-        Args:
-            subject (str, optional): The subject of the triple to filter by.
-            predicate (str, optional): The predicate describing the relationship to filter by.
-            object_ (str, optional): The object of the triple to filter by.
+        参数：
+            subject (str, optional): 用于过滤的三元组主体。
+            predicate (str, optional): 用于过滤的描述关系的谓词。
+            object_ (str, optional): 用于过滤的三元组客体。
 
-        Returns:
-            List[SPO]: A list of SPO objects representing the selected triples.
+        返回：
+            List[SPO]: 代表选定三元组的 SPO 对象列表。
 
-        Example:
+        示例：
             selected_triples = await my_repository.select(subject="Node1", predicate="connects_to")
-            # Retrieves triples where Node1 is the subject and the predicate is 'connects_to'.
+            # 检索出主体为 Node1，谓词为 'connects_to' 的三元组。
         """
         pass
 
     @abstractmethod
     async def delete(self, subject: str = None, predicate: str = None, object_: str = None) -> int:
-        """Delete triples from the graph repository based on specified criteria.
+        """根据指定的条件从图数据库仓库中删除三元组。
 
-        Args:
-            subject (str, optional): The subject of the triple to filter by.
-            predicate (str, optional): The predicate describing the relationship to filter by.
-            object_ (str, optional): The object of the triple to filter by.
+        参数：
+            subject (str, optional): 用于过滤的三元组主体。
+            predicate (str, optional): 用于过滤的描述关系的谓词。
+            object_ (str, optional): 用于过滤的三元组客体。
 
-        Returns:
-            int: The number of triples deleted from the repository.
+        返回：
+            int: 从仓库中删除的三元组数量。
 
-        Example:
+        示例：
             deleted_count = await my_repository.delete(subject="Node1", predicate="connects_to")
-            # Deletes triples where Node1 is the subject and the predicate is 'connects_to'.
+            # 删除主体为 Node1，谓词为 'connects_to' 的三元组。
         """
         pass
 
     @abstractmethod
     async def save(self):
-        """Save any changes made to the graph repository.
+        """保存对图数据库仓库所做的所有更改。
 
-        Example:
+        示例：
             await my_repository.save()
-            # Persists any changes made to the graph repository.
+            # 持久化所有对图数据库仓库所做的更改。
         """
         pass
 
     @property
     def name(self) -> str:
-        """Get the name of the graph repository."""
+        """获取图数据库仓库的名称。"""
         return self._repo_name
 
     @staticmethod
     async def update_graph_db_with_file_info(graph_db: "GraphRepository", file_info: RepoFileInfo):
-        """Insert information of RepoFileInfo into the specified graph repository.
+        """将 RepoFileInfo 中的信息插入到指定的图数据库仓库中。
 
-        This function updates the provided graph repository with information from the given RepoFileInfo object.
-        The function inserts triples related to various dimensions such as file type, class, class method, function,
-        global variable, and page info.
+        此方法将给定的 RepoFileInfo 对象中的信息更新到提供的图数据库仓库中。
+        它插入与文件类型、类、类方法、函数、全局变量和页面信息等相关的三元组。
 
-        Triple Patterns:
-        - (?, is, [file type])
+        三元组模式：
+        - (?, is, [文件类型])
         - (?, has class, ?)
-        - (?, is, [class])
+        - (?, is, [类])
         - (?, has class method, ?)
         - (?, has function, ?)
-        - (?, is, [function])
-        - (?, is, global variable)
+        - (?, is, 全局变量)
         - (?, has page info, ?)
 
-        Args:
-            graph_db (GraphRepository): The graph repository object to be updated.
-            file_info (RepoFileInfo): The RepoFileInfo object containing information to be inserted.
+        参数：
+            graph_db (GraphRepository): 要更新的图数据库对象。
+            file_info (RepoFileInfo): 包含插入信息的 RepoFileInfo 对象。
 
-        Example:
+        示例：
             await update_graph_db_with_file_info(my_graph_repo, my_file_info)
-            # Updates 'my_graph_repo' with information from 'my_file_info'.
+            # 使用 'my_file_info' 中的信息更新 'my_graph_repo'。
         """
+        # 插入文件类型信息
         await graph_db.insert(subject=file_info.file, predicate=GraphKeyword.IS, object_=GraphKeyword.SOURCE_CODE)
         file_types = {".py": "python", ".js": "javascript"}
         file_type = file_types.get(Path(file_info.file).suffix, GraphKeyword.NULL)
         await graph_db.insert(subject=file_info.file, predicate=GraphKeyword.IS, object_=file_type)
+
+        # 插入类信息
         for c in file_info.classes:
             class_name = c.get("name", "")
-            # file -> class
+            # 文件 -> 类
             await graph_db.insert(
                 subject=file_info.file,
                 predicate=GraphKeyword.HAS_CLASS,
                 object_=concat_namespace(file_info.file, class_name),
             )
-            # class detail
+            # 类详细信息
             await graph_db.insert(
                 subject=concat_namespace(file_info.file, class_name),
                 predicate=GraphKeyword.IS,
@@ -202,31 +202,38 @@ class GraphRepository(ABC):
             )
             methods = c.get("methods", [])
             for fn in methods:
+                # 类 -> 类方法
                 await graph_db.insert(
                     subject=concat_namespace(file_info.file, class_name),
                     predicate=GraphKeyword.HAS_CLASS_METHOD,
                     object_=concat_namespace(file_info.file, class_name, fn),
                 )
+                # 类方法详细信息
                 await graph_db.insert(
                     subject=concat_namespace(file_info.file, class_name, fn),
                     predicate=GraphKeyword.IS,
                     object_=GraphKeyword.CLASS_METHOD,
                 )
+        # 插入函数信息
         for f in file_info.functions:
-            # file -> function
+            # 文件 -> 函数
             await graph_db.insert(
                 subject=file_info.file, predicate=GraphKeyword.HAS_FUNCTION, object_=concat_namespace(file_info.file, f)
             )
-            # function detail
+            # 函数详细信息
             await graph_db.insert(
                 subject=concat_namespace(file_info.file, f), predicate=GraphKeyword.IS, object_=GraphKeyword.FUNCTION
             )
+
+        # 插入全局变量信息
         for g in file_info.globals:
             await graph_db.insert(
                 subject=concat_namespace(file_info.file, g),
                 predicate=GraphKeyword.IS,
                 object_=GraphKeyword.GLOBAL_VARIABLE,
             )
+
+        # 插入页面信息
         for code_block in file_info.page_info:
             if code_block.tokens:
                 await graph_db.insert(
@@ -243,13 +250,12 @@ class GraphRepository(ABC):
 
     @staticmethod
     async def update_graph_db_with_class_views(graph_db: "GraphRepository", class_views: List[DotClassInfo]):
-        """Insert dot format class information into the specified graph repository.
+        """将 dot 格式的类信息插入到指定的图数据库仓库中。
 
-        This function updates the provided graph repository with class information from the given list of DotClassInfo objects.
-        The function inserts triples related to various aspects of class views, including source code, file type, class,
-        class property, class detail, method, composition, and aggregation.
+        此方法将给定的 DotClassInfo 对象列表中的类信息更新到图数据库仓库中。
+        它插入与类视图的各种方面相关的三元组，包括源代码、文件类型、类、类属性、类详细信息、方法、组合和聚合。
 
-        Triple Patterns:
+        三元组模式：
         - (?, is, source code)
         - (?, is, file type)
         - (?, has class, ?)
@@ -261,36 +267,40 @@ class GraphRepository(ABC):
         - (?, is composite of, ?)
         - (?, is aggregate of, ?)
 
-        Args:
-            graph_db (GraphRepository): The graph repository object to be updated.
-            class_views (List[DotClassInfo]): List of DotClassInfo objects containing class information to be inserted.
+        参数：
+            graph_db (GraphRepository): 要更新的图数据库对象。
+            class_views (List[DotClassInfo]): 包含要插入的类信息的 DotClassInfo 对象列表。
 
-
-        Example:
+        示例：
             await update_graph_db_with_class_views(my_graph_repo, [class_info1, class_info2])
-            # Updates 'my_graph_repo' with class information from the provided list of DotClassInfo objects.
+            # 使用提供的 DotClassInfo 对象列表中的类信息更新 'my_graph_repo'。
         """
         for c in class_views:
             filename, _ = c.package.split(":", 1)
+            # 插入源代码信息
             await graph_db.insert(subject=filename, predicate=GraphKeyword.IS, object_=GraphKeyword.SOURCE_CODE)
             file_types = {".py": "python", ".js": "javascript"}
             file_type = file_types.get(Path(filename).suffix, GraphKeyword.NULL)
             await graph_db.insert(subject=filename, predicate=GraphKeyword.IS, object_=file_type)
+            # 文件 -> 类
             await graph_db.insert(subject=filename, predicate=GraphKeyword.HAS_CLASS, object_=c.package)
+            # 类详细信息
             await graph_db.insert(
                 subject=c.package,
                 predicate=GraphKeyword.IS,
                 object_=GraphKeyword.CLASS,
             )
             await graph_db.insert(subject=c.package, predicate=GraphKeyword.HAS_DETAIL, object_=c.model_dump_json())
+
+            # 插入类属性信息
             for vn, vt in c.attributes.items():
-                # class -> property
+                # 类 -> 属性
                 await graph_db.insert(
                     subject=c.package,
                     predicate=GraphKeyword.HAS_CLASS_PROPERTY,
                     object_=concat_namespace(c.package, vn),
                 )
-                # property detail
+                # 属性详细信息
                 await graph_db.insert(
                     subject=concat_namespace(c.package, vn),
                     predicate=GraphKeyword.IS,
@@ -301,14 +311,16 @@ class GraphRepository(ABC):
                     predicate=GraphKeyword.HAS_DETAIL,
                     object_=vt.model_dump_json(),
                 )
+
+            # 插入类方法信息
             for fn, ft in c.methods.items():
-                # class -> function
+                # 类 -> 方法
                 await graph_db.insert(
                     subject=c.package,
                     predicate=GraphKeyword.HAS_CLASS_METHOD,
                     object_=concat_namespace(c.package, fn),
                 )
-                # function detail
+                # 方法详细信息
                 await graph_db.insert(
                     subject=concat_namespace(c.package, fn),
                     predicate=GraphKeyword.IS,
@@ -319,10 +331,14 @@ class GraphRepository(ABC):
                     predicate=GraphKeyword.HAS_DETAIL,
                     object_=ft.model_dump_json(),
                 )
+
+            # 插入组合信息
             for i in c.compositions:
                 await graph_db.insert(
                     subject=c.package, predicate=GraphKeyword.IS_COMPOSITE_OF, object_=concat_namespace("?", i)
                 )
+
+            # 插入聚合信息
             for i in c.aggregations:
                 await graph_db.insert(
                     subject=c.package, predicate=GraphKeyword.IS_AGGREGATE_OF, object_=concat_namespace("?", i)
@@ -330,34 +346,32 @@ class GraphRepository(ABC):
 
     @staticmethod
     async def update_graph_db_with_class_relationship_views(
-        graph_db: "GraphRepository", relationship_views: List[DotClassRelationship]
+            graph_db: "GraphRepository", relationship_views: List[DotClassRelationship]
     ):
-        """Insert class relationships and labels into the specified graph repository.
+        """插入类之间的关系和标签到指定的图数据库中。
 
-        This function updates the provided graph repository with class relationship information from the given list
-        of DotClassRelationship objects. The function inserts triples representing relationships and labels between
-        classes.
+        这个函数将通过给定的 DotClassRelationship 对象列表更新图数据库中的类关系信息。函数会插入表示类之间关系和标签的三元组。
 
-        Triple Patterns:
-        - (?, is relationship of, ?)
-        - (?, is relationship on, ?)
+        三元组模式：
+        - (?, 是关系的, ?)
+        - (?, 是关系上的, ?)
 
-        Args:
-            graph_db (GraphRepository): The graph repository object to be updated.
-            relationship_views (List[DotClassRelationship]): List of DotClassRelationship objects containing
-            class relationship information to be inserted.
+        参数:
+            graph_db (GraphRepository): 需要更新的图数据库对象。
+            relationship_views (List[DotClassRelationship]): 包含类关系信息的 DotClassRelationship 对象列表。
 
-        Example:
+        示例:
             await update_graph_db_with_class_relationship_views(my_graph_repo, [relationship1, relationship2])
-            # Updates 'my_graph_repo' with class relationship information from the provided list of DotClassRelationship objects.
-
+            # 使用提供的 DotClassRelationship 对象列表更新 'my_graph_repo' 的类关系信息。
         """
         for r in relationship_views:
+            # 插入关系三元组（源 -> 关系的 -> 目标）
             await graph_db.insert(
                 subject=r.src, predicate=GraphKeyword.IS + r.relationship + GraphKeyword.OF, object_=r.dest
             )
             if not r.label:
                 continue
+            # 插入带标签的关系三元组（源 -> 关系上的 -> 目标标签）
             await graph_db.insert(
                 subject=r.src,
                 predicate=GraphKeyword.IS + r.relationship + GraphKeyword.ON,
@@ -366,29 +380,32 @@ class GraphRepository(ABC):
 
     @staticmethod
     async def rebuild_composition_relationship(graph_db: "GraphRepository"):
-        """Append namespace-prefixed information to relationship SPO (Subject-Predicate-Object) objects in the graph
-            repository.
+        """向图数据库中的关系 SPO（主体-谓词-宾语）对象追加命名空间前缀信息。
 
-        This function updates the provided graph repository by appending namespace-prefixed information to existing
-        relationship SPO objects.
+        该函数通过向现有的关系 SPO 对象追加命名空间前缀信息来更新图数据库。
 
-        Args:
-            graph_db (GraphRepository): The graph repository object to be updated.
+        参数:
+            graph_db (GraphRepository): 需要更新的图数据库对象。
         """
+        # 查询所有类的三元组（以获取类的命名空间）
         classes = await graph_db.select(predicate=GraphKeyword.IS, object_=GraphKeyword.CLASS)
         mapping = defaultdict(list)
         for c in classes:
             name = split_namespace(c.subject)[-1]
             mapping[name].append(c.subject)
 
+        # 查询所有“是组合关系”的三元组
         rows = await graph_db.select(predicate=GraphKeyword.IS_COMPOSITE_OF)
         for r in rows:
             ns, class_ = split_namespace(r.object_)
+            # 如果对象的命名空间不为“？”
             if ns != "?":
                 continue
             val = mapping[class_]
+            # 如果存在多个命名空间映射，跳过
             if len(val) != 1:
                 continue
             ns_name = val[0]
+            # 删除旧的关系三元组并插入带有命名空间的三元组
             await graph_db.delete(subject=r.subject, predicate=r.predicate, object_=r.object_)
             await graph_db.insert(subject=r.subject, predicate=r.predicate, object_=ns_name)

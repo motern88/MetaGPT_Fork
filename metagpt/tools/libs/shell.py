@@ -11,24 +11,22 @@ async def shell_execute(
     command: Union[List[str], str], cwd: str | Path = None, env: Dict = None, timeout: int = 600
 ) -> Tuple[str, str, int]:
     """
-    Execute a command asynchronously and return its standard output and standard error.
+    异步执行命令，并返回标准输出、标准错误和返回码。
 
-    Args:
-        command (Union[List[str], str]): The command to execute and its arguments. It can be provided either as a list
-            of strings or as a single string.
-        cwd (str | Path, optional): The current working directory for the command. Defaults to None.
-        env (Dict, optional): Environment variables to set for the command. Defaults to None.
-        timeout (int, optional): Timeout for the command execution in seconds. Defaults to 600.
+    参数：
+        command (Union[List[str], str]): 要执行的命令及其参数，可以是字符串列表或单个字符串。
+        cwd (str | Path, 可选): 命令的当前工作目录，默认为 None。
+        env (Dict, 可选): 设置命令执行的环境变量，默认为 None。
+        timeout (int, 可选): 命令执行的超时时间（秒），默认为 600。
 
-    Returns:
-        Tuple[str, str, int]: A tuple containing the string type standard output and string type standard error of the executed command and int type return code.
+    返回：
+        Tuple[str, str, int]: 包含标准输出、标准错误和返回码的元组。
 
-    Raises:
-        ValueError: If the command times out, this error is raised. The error message contains both standard output and
-         standard error of the timed-out process.
+    异常：
+        ValueError: 如果命令超时，将抛出此错误，错误消息包含超时进程的标准输出和标准错误。
 
-    Example:
-        >>> # command is a list
+    示例：
+        >>> # 使用列表作为命令
         >>> stdout, stderr, returncode = await shell_execute(command=["ls", "-l"], cwd="/home/user", env={"PATH": "/usr/bin"})
         >>> print(stdout)
         total 8
@@ -36,7 +34,7 @@ async def shell_execute(
         -rw-r--r-- 1 user user    0 Mar 22 10:00 file2.txt
         ...
 
-        >>> # command is a string of shell script
+        >>> # 使用字符串作为命令
         >>> stdout, stderr, returncode = await shell_execute(command="ls -l", cwd="/home/user", env={"PATH": "/usr/bin"})
         >>> print(stdout)
         total 8
@@ -44,10 +42,11 @@ async def shell_execute(
         -rw-r--r-- 1 user user    0 Mar 22 10:00 file2.txt
         ...
 
-    References:
-        This function uses `subprocess.Popen` for executing shell commands asynchronously.
+    参考：
+        该函数使用 `subprocess.run` 以异步方式执行 shell 命令。
     """
     cwd = str(cwd) if cwd else None
     shell = True if isinstance(command, str) else False
     result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, env=env, timeout=timeout, shell=shell)
     return result.stdout, result.stderr, result.returncode
+

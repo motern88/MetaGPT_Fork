@@ -65,6 +65,12 @@ def check_cmd_exists(command) -> int:
 
 
 def require_python_version(req_version: Tuple) -> bool:
+    """
+    检查当前 Python 版本是否高于指定版本。
+
+    :param req_version: 需要的 Python 版本，例如 (3, 9) 或 (3, 10, 13)。
+    :return: 如果当前 Python 版本高于 `req_version`，返回 True，否则返回 False。
+    """
     if not (2 <= len(req_version) <= 3):
         raise ValueError("req_version should be (3, 9) or (3, 10, 13)")
     return bool(sys.version_info > req_version)
@@ -73,6 +79,12 @@ def require_python_version(req_version: Tuple) -> bool:
 class OutputParser:
     @classmethod
     def parse_blocks(cls, text: str):
+        """
+        解析文本，将其分割为多个块。
+
+        :param text: 需要解析的文本数据。
+        :return: 一个字典，键是块的标题，值是块的内容。
+        """
         # 首先根据"##"将文本分割成不同的block
         blocks = text.split(MARKDOWN_TITLE_PREFIX)
 
@@ -94,6 +106,13 @@ class OutputParser:
 
     @classmethod
     def parse_code(cls, text: str, lang: str = "") -> str:
+        """
+        提取代码块内容。
+
+        :param text: 需要解析的文本数据。
+        :param lang: 代码语言（如 "python"），默认为空字符串。
+        :return: 解析出的代码内容（字符串）。
+        """
         pattern = rf"```{lang}.*?\s+(.*?)```"
         match = re.search(pattern, text, re.DOTALL)
         if match:
@@ -104,12 +123,24 @@ class OutputParser:
 
     @classmethod
     def parse_str(cls, text: str):
+        """
+        解析字符串，将等号后的内容提取出来，并去掉多余的引号。
+
+        :param text: 需要解析的字符串。
+        :return: 解析出的字符串。
+        """
         text = text.split("=")[-1]
         text = text.strip().strip("'").strip('"')
         return text
 
     @classmethod
     def parse_file_list(cls, text: str) -> list[str]:
+        """
+        解析文件列表。
+
+        :param text: 需要解析的文本数据。
+        :return: 解析出的文件列表（列表）。
+        """
         # Regular expression pattern to find the tasks list.
         pattern = r"\s*(.*=.*)?(\[.*\])"
 
@@ -126,6 +157,13 @@ class OutputParser:
 
     @staticmethod
     def parse_python_code(text: str) -> str:
+        """
+        解析 Python 代码块，并验证代码是否有效。
+
+        :param text: 需要解析的文本数据。
+        :return: 解析出的 Python 代码。
+        :raises ValueError: 如果代码无效，则抛出异常。
+        """
         for pattern in (r"(.*?```python.*?\s+)?(?P<code>.*)(```.*?)", r"(.*?```python.*?\s+)?(?P<code>.*)"):
             match = re.search(pattern, text, re.DOTALL)
             if not match:
@@ -140,6 +178,12 @@ class OutputParser:
 
     @classmethod
     def parse_data(cls, data):
+        """
+        解析数据，自动提取代码块、列表等格式化内容。
+
+        :param data: 需要解析的文本数据。
+        :return: 解析后的数据字典。
+        """
         block_dict = cls.parse_blocks(data)
         parsed_data = {}
         for block, content in block_dict.items():
@@ -157,6 +201,14 @@ class OutputParser:
 
     @staticmethod
     def extract_content(text, tag="CONTENT"):
+        """
+        提取标记 [CONTENT] 和 [/CONTENT] 之间的内容。
+
+        :param text: 需要解析的文本数据。
+        :param tag: 需要提取的标签（默认为 "CONTENT"）。
+        :return: 提取出的内容。
+        :raises ValueError: 如果未找到指定内容，则抛出异常。
+        """
         # Use regular expression to extract content between [CONTENT] and [/CONTENT]
         extracted_content = re.search(rf"\[{tag}\](.*?)\[/{tag}\]", text, re.DOTALL)
 
@@ -167,6 +219,13 @@ class OutputParser:
 
     @classmethod
     def parse_data_with_mapping(cls, data, mapping):
+        """
+        按照给定的映射规则解析数据。
+
+        :param data: 需要解析的文本数据。
+        :param mapping: 预定义的字段映射规则（字典）。
+        :return: 解析后的数据字典。
+        """
         if "[CONTENT]" in data:
             data = cls.extract_content(text=data)
         block_dict = cls.parse_blocks(data)
@@ -200,80 +259,98 @@ class OutputParser:
 
     @classmethod
     def extract_struct(cls, text: str, data_type: Union[type(list), type(dict)]) -> Union[list, dict]:
-        """Extracts and parses a specified type of structure (dictionary or list) from the given text.
-        The text only contains a list or dictionary, which may have nested structures.
+        """从给定文本中提取并解析指定类型的数据结构（字典或列表）。
+        文本仅包含一个列表或字典，并且可能包含嵌套结构。
 
-        Args:
-            text: The text containing the structure (dictionary or list).
-            data_type: The data type to extract, can be "list" or "dict".
+        参数：
+            text: 包含数据结构（字典或列表）的文本。
+            data_type: 需要提取的数据类型，可以是 `list` 或 `dict`。
 
-        Returns:
-            - If extraction and parsing are successful, it returns the corresponding data structure (list or dictionary).
-            - If extraction fails or parsing encounters an error, it throw an exception.
+        返回：
+            - 如果提取和解析成功，则返回相应的数据结构（列表或字典）。
+            - 如果提取失败或解析出错，则抛出异常。
 
-        Examples:
+        示例：
             >>> text = 'xxx [1, 2, ["a", "b", [3, 4]], {"x": 5, "y": [6, 7]}] xxx'
-            >>> result_list = OutputParser.extract_struct(text, "list")
+            >>> result_list = OutputParser.extract_struct(text, list)
             >>> print(result_list)
-            >>> # Output: [1, 2, ["a", "b", [3, 4]], {"x": 5, "y": [6, 7]}]
+            >>> # 输出: [1, 2, ["a", "b", [3, 4]], {"x": 5, "y": [6, 7]}]
 
             >>> text = 'xxx {"x": 1, "y": {"a": 2, "b": {"c": 3}}} xxx'
-            >>> result_dict = OutputParser.extract_struct(text, "dict")
+            >>> result_dict = OutputParser.extract_struct(text, dict)
             >>> print(result_dict)
-            >>> # Output: {"x": 1, "y": {"a": 2, "b": {"c": 3}}}
+            >>> # 输出: {"x": 1, "y": {"a": 2, "b": {"c": 3}}}
         """
-        # Find the first "[" or "{" and the last "]" or "}"
+        # 查找第一个 "[" 或 "{" 以及最后一个 "]" 或 "}"
         start_index = text.find("[" if data_type is list else "{")
         end_index = text.rfind("]" if data_type is list else "}")
 
         if start_index != -1 and end_index != -1:
-            # Extract the structure part
-            structure_text = text[start_index : end_index + 1]
+            # 提取结构部分
+            structure_text = text[start_index: end_index + 1]
 
             try:
-                # Attempt to convert the text to a Python data type using ast.literal_eval
+                # 使用 ast.literal_eval 将文本转换为 Python 数据结构
                 result = ast.literal_eval(structure_text)
 
-                # Ensure the result matches the specified data type
+                # 确保解析结果与指定数据类型匹配
                 if isinstance(result, (list, dict)):
                     return result
 
-                raise ValueError(f"The extracted structure is not a {data_type}.")
+                raise ValueError(f"提取的数据结构不是 {data_type} 类型。")
 
             except (ValueError, SyntaxError) as e:
-                raise Exception(f"Error while extracting and parsing the {data_type}: {e}")
+                raise Exception(f"提取并解析 {data_type} 结构时发生错误: {e}")
         else:
-            logger.error(f"No {data_type} found in the text.")
+            logger.error(f"在文本中未找到 {data_type} 数据结构。")
             return [] if data_type is list else {}
 
 
 class CodeParser:
     @classmethod
     def parse_block(cls, block: str, text: str) -> str:
-        blocks = cls.parse_blocks(text)
+        """
+        从文本中提取指定的 block 内容。
+
+        参数：
+            block: 需要提取的 block 名称（标题）。
+            text: 包含多个 block 的文本。
+
+        返回：
+            block 对应的内容字符串，如果找不到则返回空字符串。
+        """
+        blocks = cls.parse_blocks(text)  # 解析所有 block
         for k, v in blocks.items():
-            if block in k:
+            if block in k:  # 如果 block 名称匹配，则返回对应内容
                 return v
         return ""
 
     @classmethod
     def parse_blocks(cls, text: str):
-        # 首先根据"##"将文本分割成不同的block
+        """
+        解析文本中的所有 block，并以字典的形式返回。
+
+        参数：
+            text: 包含多个 block 的文本，每个 block 以 "##" 作为分隔符。
+
+        返回：
+            一个字典，键是 block 标题，值是 block 内容。
+        """
+        # 以 "##" 作为分隔符，将文本拆分成多个 block
         blocks = text.split("##")
 
-        # 创建一个字典，用于存储每个block的标题和内容
+        # 创建一个字典，用于存储 block 标题和内容
         block_dict = {}
 
-        # 遍历所有的block
+        # 遍历所有的 block
         for block in blocks:
-            # 如果block不为空，则继续处理
-            if block.strip() == "":
+            if block.strip() == "":  # 忽略空 block
                 continue
-            if "\n" not in block:
+            if "\n" not in block:  # 仅有标题但无内容
                 block_title = block
                 block_content = ""
             else:
-                # 将block的标题和内容分开，并分别去掉前后的空白字符
+                # 将 block 标题和内容分开，并去除前后空白字符
                 block_title, block_content = block.split("\n", 1)
             block_dict[block_title.strip()] = block_content.strip()
 
@@ -281,99 +358,142 @@ class CodeParser:
 
     @classmethod
     def parse_code(cls, text: str, lang: str = "", block: Optional[str] = None) -> str:
+        """
+        从文本中提取指定语言的代码块内容。
+
+        参数：
+            text: 包含代码块的文本。
+            lang: 代码块的语言（默认为空，表示匹配任何语言）。
+            block: 可选，指定从某个 block 里提取代码。
+
+        返回：
+            提取到的代码内容字符串。如果未匹配到代码块，则返回原始文本。
+        """
         if block:
-            text = cls.parse_block(block, text)
-        pattern = rf"```{lang}.*?\s+(.*?)\n```"
+            text = cls.parse_block(block, text)  # 先提取指定 block 的内容
+        pattern = rf"```{lang}.*?\s+(.*?)\n```"  # 匹配代码块
         match = re.search(pattern, text, re.DOTALL)
         if match:
-            code = match.group(1)
+            code = match.group(1)  # 提取代码内容
         else:
             logger.error(f"{pattern} not match following text:")
             logger.error(text)
-            # raise Exception
-            return text  # just assume original text is code
+            return text  # 假设原始文本就是代码
         return code
 
     @classmethod
     def parse_str(cls, block: str, text: str, lang: str = ""):
+        """
+        从文本中的指定 block 里提取字符串变量值。
+
+        参数：
+            block: 代码所在的 block 名称。
+            text: 包含代码的文本。
+            lang: 代码语言（默认为空，表示匹配任何语言）。
+
+        返回：
+            提取出的字符串值（去掉引号）。
+        """
         code = cls.parse_code(block=block, text=text, lang=lang)
-        code = code.split("=")[-1]
-        code = code.strip().strip("'").strip('"')
+        code = code.split("=")[-1]  # 取等号后面的部分
+        code = code.strip().strip("'").strip('"')  # 去除前后空白和引号
         return code
 
     @classmethod
     def parse_file_list(cls, block: str, text: str, lang: str = "") -> list[str]:
-        # Regular expression pattern to find the tasks list.
+        """
+        从文本中的指定 block 里提取列表变量。
+
+        参数：
+            block: 代码所在的 block 名称。
+            text: 包含代码的文本。
+            lang: 代码语言（默认为空，表示匹配任何语言）。
+
+        返回：
+            解析出的 Python 列表。
+        """
+        # 获取代码内容
         code = cls.parse_code(block=block, text=text, lang=lang)
-        # print(code)
+
+        # 正则表达式匹配列表
         pattern = r"\s*(.*=.*)?(\[.*\])"
 
-        # Extract tasks list string using regex.
+        # 使用正则表达式提取列表字符串
         match = re.search(pattern, code, re.DOTALL)
         if match:
-            tasks_list_str = match.group(2)
+            tasks_list_str = match.group(2)  # 取列表部分
 
-            # Convert string representation of list to a Python list using ast.literal_eval.
+            # 将字符串转换为 Python 列表
             tasks = ast.literal_eval(tasks_list_str)
         else:
-            raise Exception
+            raise Exception("未能解析出列表")
         return tasks
 
 
 class NoMoneyException(Exception):
-    """Raised when the operation cannot be completed due to insufficient funds"""
+    """当资金不足时抛出的异常"""
 
-    def __init__(self, amount, message="Insufficient funds"):
+    def __init__(self, amount, message="资金不足"):
         self.amount = amount
         self.message = message
         super().__init__(self.message)
 
     def __str__(self):
-        return f"{self.message} -> Amount required: {self.amount}"
+        return f"{self.message} -> 需要金额: {self.amount}"
 
 
 def print_members(module, indent=0):
     """
-    https://stackoverflow.com/questions/1796180/how-can-i-get-a-list-of-all-classes-within-current-module-in-python
+    打印模块的所有成员，包括类和方法
+
+    来源: https://stackoverflow.com/questions/1796180/
     """
     prefix = " " * indent
     for name, obj in inspect.getmembers(module):
         print(name, obj)
         if inspect.isclass(obj):
-            print(f"{prefix}Class: {name}")
-            # print the methods within the class
+            print(f"{prefix}类: {name}")
             if name in ["__class__", "__base__"]:
                 continue
             print_members(obj, indent + 2)
         elif inspect.isfunction(obj):
-            print(f"{prefix}Function: {name}")
+            print(f"{prefix}函数: {name}")
         elif inspect.ismethod(obj):
-            print(f"{prefix}Method: {name}")
+            print(f"{prefix}方法: {name}")
 
 
 def get_function_schema(func: Callable) -> dict[str, Union[dict, Any, str]]:
+    """
+    获取函数的输入参数、返回类型和文档说明
+    """
     sig = inspect.signature(func)
     parameters = sig.parameters
     return_type = sig.return_annotation
     param_schema = {name: parameter.annotation for name, parameter in parameters.items()}
-    return {"input_params": param_schema, "return_type": return_type, "func_desc": func.__doc__, "func": func}
+    return {"输入参数": param_schema, "返回类型": return_type, "函数描述": func.__doc__, "函数": func}
 
 
 def parse_recipient(text):
-    # FIXME: use ActionNode instead.
-    pattern = r"## Send To:\s*([A-Za-z]+)\s*?"  # hard code for now
+    """
+    解析文本中的收件人信息
+    """
+    pattern = r"## Send To:\s*([A-Za-z]+)\s*?"
     recipient = re.search(pattern, text)
     if recipient:
         return recipient.group(1)
+
     pattern = r"Send To:\s*([A-Za-z]+)\s*?"
     recipient = re.search(pattern, text)
     if recipient:
         return recipient.group(1)
+
     return ""
 
 
 def remove_comments(code_str: str) -> str:
-    """Remove comments from code."""
+    """
+    移除代码中的注释
+    """
     pattern = r"(\".*?\"|\'.*?\')|(\#.*?$)"
 
     def replace_func(match):
@@ -388,12 +508,18 @@ def remove_comments(code_str: str) -> str:
 
 
 def get_class_name(cls) -> str:
-    """Return class name"""
+    """
+    获取类的完整名称（包括模块名）
+    """
     return f"{cls.__module__}.{cls.__name__}"
 
 
 def any_to_str(val: Any) -> str:
-    """Return the class name or the class name of the object, or 'val' if it's a string type."""
+    """
+    将任意对象转换为字符串:
+    - 若为字符串，则直接返回
+    - 若为类或对象，则返回类名
+    """
     if isinstance(val, str):
         return val
     elif not callable(val):
@@ -403,28 +529,26 @@ def any_to_str(val: Any) -> str:
 
 
 def any_to_str_set(val) -> set:
-    """Convert any type to string set."""
+    """
+    将任意数据转换为字符串集合
+    """
     res = set()
-
-    # Check if the value is iterable, but not a string (since strings are technically iterable)
     if isinstance(val, (dict, list, set, tuple)):
-        # Special handling for dictionaries to iterate over values
         if isinstance(val, dict):
             val = val.values()
-
         for i in val:
             res.add(any_to_str(i))
     else:
         res.add(any_to_str(val))
-
     return res
 
 
 def is_send_to(message: "Message", addresses: set):
-    """Return whether it's consumer"""
-    if MESSAGE_ROUTE_TO_ALL in message.send_to:
+    """
+    判断消息是否需要发送到指定地址
+    """
+    if "ALL" in message.send_to:
         return True
-
     for i in addresses:
         if i in message.send_to:
             return True
@@ -433,53 +557,30 @@ def is_send_to(message: "Message", addresses: set):
 
 def any_to_name(val):
     """
-    Convert a value to its name by extracting the last part of the dotted path.
+    获取对象的名称（去掉模块路径）
     """
     return any_to_str(val).split(".")[-1]
 
 
 def concat_namespace(*args, delimiter: str = ":") -> str:
-    """Concatenate fields to create a unique namespace prefix.
-
-    Example:
-        >>> concat_namespace('prefix', 'field1', 'field2', delimiter=":")
-        'prefix:field1:field2'
+    """
+    连接多个字段，形成唯一的命名空间前缀
     """
     return delimiter.join(str(value) for value in args)
 
 
 def split_namespace(ns_class_name: str, delimiter: str = ":", maxsplit: int = 1) -> List[str]:
-    """Split a namespace-prefixed name into its namespace-prefix and name parts.
-
-    Example:
-        >>> split_namespace('prefix:classname')
-        ['prefix', 'classname']
-
-        >>> split_namespace('prefix:module:class', delimiter=":", maxsplit=2)
-        ['prefix', 'module', 'class']
+    """
+    将命名空间前缀的名称拆分成前缀和名称部分
     """
     return ns_class_name.split(delimiter, maxsplit=maxsplit)
 
 
 def auto_namespace(name: str, delimiter: str = ":") -> str:
-    """Automatically handle namespace-prefixed names.
-
-    If the input name is empty, returns a default namespace prefix and name.
-    If the input name is not namespace-prefixed, adds a default namespace prefix.
-    Otherwise, returns the input name unchanged.
-
-    Example:
-        >>> auto_namespace('classname')
-        '?:classname'
-
-        >>> auto_namespace('prefix:classname')
-        'prefix:classname'
-
-        >>> auto_namespace('')
-        '?:?'
-
-        >>> auto_namespace('?:custom')
-        '?:custom'
+    """
+    自动处理命名空间前缀的名称:
+    - 如果为空，则返回默认前缀 `?:?`
+    - 如果没有命名空间前缀，则添加 `?` 作为默认前缀
     """
     if not name:
         return f"?{delimiter}?"
@@ -490,9 +591,9 @@ def auto_namespace(name: str, delimiter: str = ":") -> str:
 
 
 def add_affix(text: str, affix: Literal["brace", "url", "none"] = "brace"):
-    """Add affix to encapsulate data.
+    """为字符串添加前后缀封装。
 
-    Example:
+    示例：
         >>> add_affix("data", affix="brace")
         '{data}'
 
@@ -511,17 +612,9 @@ def add_affix(text: str, affix: Literal["brace", "url", "none"] = "brace"):
 
 
 def remove_affix(text, affix: Literal["brace", "url", "none"] = "brace"):
-    """Remove affix to extract encapsulated data.
+    """移除字符串的前后缀封装。
 
-    Args:
-        text (str): The input text with affix to be removed.
-        affix (str, optional): The type of affix used. Defaults to "brace".
-            Supported affix types: "brace" for removing curly braces, "url" for URL decoding within curly braces.
-
-    Returns:
-        str: The text with affix removed.
-
-    Example:
+    示例：
         >>> remove_affix('{data}', affix="brace")
         'data'
 
@@ -538,70 +631,57 @@ def remove_affix(text, affix: Literal["brace", "url", "none"] = "brace"):
 
 def general_after_log(i: "loguru.Logger", sec_format: str = "%0.3f") -> Callable[["RetryCallState"], None]:
     """
-    Generates a logging function to be used after a call is retried.
+    生成一个用于日志记录的回调函数，记录重试操作的结果。
 
-    This generated function logs an error message with the outcome of the retried function call. It includes
-    the name of the function, the time taken for the call in seconds (formatted according to `sec_format`),
-    the number of attempts made, and the exception raised, if any.
-
-    :param i: A Logger instance from the loguru library used to log the error message.
-    :param sec_format: A string format specifier for how to format the number of seconds since the start of the call.
-                       Defaults to three decimal places.
-    :return: A callable that accepts a RetryCallState object and returns None. This callable logs the details
-             of the retried call.
+    :param i: loguru.Logger 日志实例
+    :param sec_format: 时间格式，默认保留三位小数
+    :return: 可调用对象，接受 RetryCallState 并进行日志记录
     """
 
     def log_it(retry_state: "RetryCallState") -> None:
-        # If the function name is not known, default to "<unknown>"
-        if retry_state.fn is None:
-            fn_name = "<unknown>"
-        else:
-            # Retrieve the callable's name using a utility function
-            fn_name = _utils.get_callback_name(retry_state.fn)
+        # 获取调用的函数名称
+        fn_name = "<unknown>" if retry_state.fn is None else _utils.get_callback_name(retry_state.fn)
 
-        # Log an error message with the function name, time since start, attempt number, and the exception
+        # 记录错误日志
         i.error(
-            f"Finished call to '{fn_name}' after {sec_format % retry_state.seconds_since_start}(s), "
-            f"this was the {_utils.to_ordinal(retry_state.attempt_number)} time calling it. "
-            f"exp: {retry_state.outcome.exception()}"
+            f"调用 '{fn_name}' 结束，耗时 {sec_format % retry_state.seconds_since_start} 秒，"
+            f"第 {_utils.to_ordinal(retry_state.attempt_number)} 次尝试，异常: {retry_state.outcome.exception()}"
         )
 
     return log_it
 
 
 def read_json_file(json_file: str, encoding: str = "utf-8") -> list[Any]:
+    """读取 JSON 文件，并返回解析后的数据"""
     if not Path(json_file).exists():
-        raise FileNotFoundError(f"json_file: {json_file} not exist, return []")
+        raise FileNotFoundError(f"文件 {json_file} 不存在")
 
     with open(json_file, "r", encoding=encoding) as fin:
         try:
             data = json.load(fin)
         except Exception:
-            raise ValueError(f"read json file: {json_file} failed")
+            raise ValueError(f"读取 JSON 文件失败: {json_file}")
     return data
 
 
 def handle_unknown_serialization(x: Any) -> str:
-    """For `to_jsonable_python` debug, get more detail about the x."""
-
+    """处理无法序列化的对象，提供详细错误信息"""
     if inspect.ismethod(x):
-        tip = f"Cannot serialize method '{x.__func__.__name__}' of class '{x.__self__.__class__.__name__}'"
+        tip = f"无法序列化方法 '{x.__func__.__name__}' (类 '{x.__self__.__class__.__name__}')"
     elif inspect.isfunction(x):
-        tip = f"Cannot serialize function '{x.__name__}'"
+        tip = f"无法序列化函数 '{x.__name__}'"
     elif hasattr(x, "__class__"):
-        tip = f"Cannot serialize instance of '{x.__class__.__name__}'"
-    elif hasattr(x, "__name__"):
-        tip = f"Cannot serialize class or module '{x.__name__}'"
+        tip = f"无法序列化 '{x.__class__.__name__}' 的实例"
     else:
-        tip = f"Cannot serialize object of type '{type(x).__name__}'"
+        tip = f"无法序列化对象类型 '{type(x).__name__}'"
 
     raise TypeError(tip)
 
 
 def write_json_file(json_file: str, data: Any, encoding: str = "utf-8", indent: int = 4, use_fallback: bool = False):
+    """写入 JSON 文件"""
     folder_path = Path(json_file).parent
-    if not folder_path.exists():
-        folder_path.mkdir(parents=True, exist_ok=True)
+    folder_path.mkdir(parents=True, exist_ok=True)
 
     custom_default = partial(to_jsonable_python, fallback=handle_unknown_serialization if use_fallback else None)
 
@@ -610,23 +690,24 @@ def write_json_file(json_file: str, data: Any, encoding: str = "utf-8", indent: 
 
 
 def read_jsonl_file(jsonl_file: str, encoding="utf-8") -> list[dict]:
+    """读取 JSONL（每行一个 JSON 记录）文件"""
     if not Path(jsonl_file).exists():
-        raise FileNotFoundError(f"json_file: {jsonl_file} not exist, return []")
+        raise FileNotFoundError(f"文件 {jsonl_file} 不存在")
+
     datas = []
     with open(jsonl_file, "r", encoding=encoding) as fin:
         try:
             for line in fin:
-                data = json.loads(line)
-                datas.append(data)
+                datas.append(json.loads(line))
         except Exception:
-            raise ValueError(f"read jsonl file: {jsonl_file} failed")
+            raise ValueError(f"读取 JSONL 文件失败: {jsonl_file}")
     return datas
 
 
 def add_jsonl_file(jsonl_file: str, data: list[dict], encoding: str = None):
+    """向 JSONL 文件追加数据"""
     folder_path = Path(jsonl_file).parent
-    if not folder_path.exists():
-        folder_path.mkdir(parents=True, exist_ok=True)
+    folder_path.mkdir(parents=True, exist_ok=True)
 
     with open(jsonl_file, "a", encoding=encoding) as fout:
         for json_item in data:
@@ -635,82 +716,70 @@ def add_jsonl_file(jsonl_file: str, data: list[dict], encoding: str = None):
 
 def read_csv_to_list(curr_file: str, header=False, strip_trail=True):
     """
-    Reads in a csv file to a list of list. If header is True, it returns a
-    tuple with (header row, all rows)
-    ARGS:
-      curr_file: path to the current csv file.
-    RETURNS:
-      List of list where the component lists are the rows of the file.
+    读取 CSV 文件，并返回数据列表。
+
+    :param curr_file: CSV 文件路径
+    :param header: 是否包含表头
+    :param strip_trail: 是否去除行末空白
+    :return: 解析后的数据列表
     """
-    logger.debug(f"start read csv: {curr_file}")
+    logger.debug(f"开始读取 CSV 文件: {curr_file}")
     analysis_list = []
     with open(curr_file) as f_analysis_file:
         data_reader = csv.reader(f_analysis_file, delimiter=",")
         for count, row in enumerate(data_reader):
             if strip_trail:
                 row = [i.strip() for i in row]
-            analysis_list += [row]
-    if not header:
-        return analysis_list
-    else:
-        return analysis_list[0], analysis_list[1:]
+            analysis_list.append(row)
+
+    return (analysis_list[0], analysis_list[1:]) if header else analysis_list
+
 
 
 def import_class(class_name: str, module_name: str) -> type:
+    """从模块中导入类"""
     module = importlib.import_module(module_name)
-    a_class = getattr(module, class_name)
-    return a_class
+    return getattr(module, class_name)
 
 
 def import_class_inst(class_name: str, module_name: str, *args, **kwargs) -> object:
+    """从模块中导入类并实例化"""
     a_class = import_class(class_name, module_name)
-    class_inst = a_class(*args, **kwargs)
-    return class_inst
+    return a_class(*args, **kwargs)
 
 
 def format_trackback_info(limit: int = 2):
+    """格式化异常信息"""
     return traceback.format_exc(limit=limit)
 
-
 def serialize_decorator(func):
+    """捕获异常并序列化的装饰器"""
     async def wrapper(self, *args, **kwargs):
         try:
-            result = await func(self, *args, **kwargs)
-            return result
+            return await func(self, *args, **kwargs)
         except KeyboardInterrupt:
-            logger.error(f"KeyboardInterrupt occurs, start to serialize the project, exp:\n{format_trackback_info()}")
+            logger.error(f"检测到 KeyboardInterrupt，正在序列化项目，异常详情:\n{format_trackback_info()}")
         except Exception:
-            logger.error(f"Exception occurs, start to serialize the project, exp:\n{format_trackback_info()}")
-        self.serialize()  # Team.serialize
+            logger.error(f"发生异常，正在序列化项目，异常详情:\n{format_trackback_info()}")
+        self.serialize()  # 触发对象的 serialize 方法
 
     return wrapper
 
 
 def role_raise_decorator(func):
+    """捕获异常并处理角色执行异常的装饰器"""
     async def wrapper(self, *args, **kwargs):
         try:
             return await func(self, *args, **kwargs)
         except KeyboardInterrupt as kbi:
-            logger.error(f"KeyboardInterrupt: {kbi} occurs, start to serialize the project")
+            logger.error(f"检测到 KeyboardInterrupt: {kbi}，正在序列化项目")
             if self.latest_observed_msg:
                 self.rc.memory.delete(self.latest_observed_msg)
-            # raise again to make it captured outside
             raise Exception(format_trackback_info(limit=None))
         except Exception as e:
             if self.latest_observed_msg:
-                logger.exception(
-                    "There is a exception in role's execution, in order to resume, "
-                    "we delete the newest role communication message in the role's memory."
-                )
-                # remove role newest observed msg to make it observed again
+                logger.exception("角色执行异常，删除最新的消息以便重新处理")
                 self.rc.memory.delete(self.latest_observed_msg)
-            # raise again to make it captured outside
-            if isinstance(e, RetryError):
-                last_error = e.last_attempt._exception
-                name = any_to_str(last_error)
-                if re.match(r"^openai\.", name) or re.match(r"^httpx\.", name):
-                    raise last_error
-
             raise Exception(format_trackback_info(limit=None)) from e
 
     return wrapper
@@ -718,13 +787,22 @@ def role_raise_decorator(func):
 
 @handle_exception
 async def aread(filename: str | Path, encoding="utf-8") -> str:
-    """Read file asynchronously."""
+    """异步读取文件内容。
+
+    参数：
+        filename (str | Path): 文件路径或名称。
+        encoding (str): 文件编码格式，默认为 UTF-8。
+
+    返回：
+        str: 读取的文件内容。如果文件不存在，则返回空字符串。
+    """
     if not filename or not Path(filename).exists():
         return ""
     try:
         async with aiofiles.open(str(filename), mode="r", encoding=encoding) as reader:
             content = await reader.read()
     except UnicodeDecodeError:
+        # 如果编码错误，尝试自动检测编码并读取
         async with aiofiles.open(str(filename), mode="rb") as reader:
             raw = await reader.read()
             result = chardet.detect(raw)
@@ -734,14 +812,30 @@ async def aread(filename: str | Path, encoding="utf-8") -> str:
 
 
 async def awrite(filename: str | Path, data: str, encoding="utf-8"):
-    """Write file asynchronously."""
+    """异步写入文件。
+
+    参数：
+        filename (str | Path): 文件路径或名称。
+        data (str): 要写入的文本数据。
+        encoding (str): 编码格式，默认为 UTF-8。
+    """
     pathname = Path(filename)
-    pathname.parent.mkdir(parents=True, exist_ok=True)
+    pathname.parent.mkdir(parents=True, exist_ok=True)  # 确保父目录存在
     async with aiofiles.open(str(pathname), mode="w", encoding=encoding) as writer:
         await writer.write(data)
 
 
 async def read_file_block(filename: str | Path, lineno: int, end_lineno: int):
+    """异步读取文件的指定行范围。
+
+    参数：
+        filename (str | Path): 文件路径或名称。
+        lineno (int): 起始行号（从 1 开始）。
+        end_lineno (int): 结束行号（包含）。
+
+    返回：
+        str: 读取的行内容。
+    """
     if not Path(filename).exists():
         return ""
     lines = []
@@ -759,6 +853,14 @@ async def read_file_block(filename: str | Path, lineno: int, end_lineno: int):
 
 
 def list_files(root: str | Path) -> List[Path]:
+    """递归列出指定目录下的所有文件。
+
+    参数：
+        root (str | Path): 目录路径。
+
+    返回：
+        List[Path]: 该目录下的所有文件路径列表。
+    """
     files = []
     try:
         directory_path = Path(root)
@@ -768,40 +870,49 @@ def list_files(root: str | Path) -> List[Path]:
             if file_path.is_file():
                 files.append(file_path)
             else:
-                subfolder_files = list_files(root=file_path)
+                subfolder_files = list_files(root=file_path)  # 递归获取子目录文件
                 files.extend(subfolder_files)
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"错误: {e}")
     return files
 
 
 def parse_json_code_block(markdown_text: str) -> List[str]:
+    """从 Markdown 文本中提取 JSON 代码块。
+
+    参数：
+        markdown_text (str): Markdown 格式的文本。
+
+    返回：
+        List[str]: JSON 代码块列表。
+    """
     json_blocks = (
         re.findall(r"```json(.*?)```", markdown_text, re.DOTALL) if "```json" in markdown_text else [markdown_text]
     )
-
     return [v.strip() for v in json_blocks]
 
 
+
 def remove_white_spaces(v: str) -> str:
+    """移除字符串中的多余空格（不影响字符串中的引号内容）。
+
+    参数：
+        v (str): 输入字符串。
+
+    返回：
+        str: 处理后的字符串。
+    """
     return re.sub(r"(?<!['\"])\s|(?<=['\"])\s", "", v)
 
 
 async def aread_bin(filename: str | Path) -> bytes:
-    """Read binary file asynchronously.
+    """异步读取二进制文件。
 
-    Args:
-        filename (Union[str, Path]): The name or path of the file to be read.
+    参数：
+        filename (str | Path): 文件路径或名称。
 
-    Returns:
-        bytes: The content of the file as bytes.
-
-    Example:
-        >>> content = await aread_bin('example.txt')
-        b'This is the content of the file.'
-
-        >>> content = await aread_bin(Path('example.txt'))
-        b'This is the content of the file.'
+    返回：
+        bytes: 读取的二进制内容。
     """
     async with aiofiles.open(str(filename), mode="rb") as reader:
         content = await reader.read()
@@ -809,16 +920,11 @@ async def aread_bin(filename: str | Path) -> bytes:
 
 
 async def awrite_bin(filename: str | Path, data: bytes):
-    """Write binary file asynchronously.
+    """异步写入二进制文件。
 
-    Args:
-        filename (Union[str, Path]): The name or path of the file to be written.
-        data (bytes): The binary data to be written to the file.
-
-    Example:
-        >>> await awrite_bin('output.bin', b'This is binary data.')
-
-        >>> await awrite_bin(Path('output.bin'), b'Another set of binary data.')
+    参数：
+        filename (str | Path): 文件路径或名称。
+        data (bytes): 要写入的二进制数据。
     """
     pathname = Path(filename)
     pathname.parent.mkdir(parents=True, exist_ok=True)
@@ -827,6 +933,14 @@ async def awrite_bin(filename: str | Path, data: bytes):
 
 
 def is_coroutine_func(func: Callable) -> bool:
+    """检查函数是否为协程函数。
+
+    参数：
+        func (Callable): 目标函数。
+
+    返回：
+        bool: 是否为协程函数。
+    """
     return inspect.iscoroutinefunction(func)
 
 
@@ -841,7 +955,15 @@ def load_mc_skills_code(skill_names: list[str] = None, skills_dir: Path = None) 
 
 
 def encode_image(image_path_or_pil: Union[Path, Image, str], encoding: str = "utf-8") -> str:
-    """encode image from file or PIL.Image into base64"""
+    """将图片编码为 Base64 字符串。
+
+    参数：
+        image_path_or_pil (Union[Path, Image, str]): 图片路径或 PIL.Image 对象。
+        encoding (str): 编码格式，默认为 UTF-8。
+
+    返回：
+        str: Base64 编码的字符串。
+    """
     if isinstance(image_path_or_pil, Image.Image):
         buffer = BytesIO()
         image_path_or_pil.save(buffer, format="JPEG")
@@ -850,20 +972,27 @@ def encode_image(image_path_or_pil: Union[Path, Image, str], encoding: str = "ut
         if isinstance(image_path_or_pil, str):
             image_path_or_pil = Path(image_path_or_pil)
         if not image_path_or_pil.exists():
-            raise FileNotFoundError(f"{image_path_or_pil} not exists")
+            raise FileNotFoundError(f"{image_path_or_pil} 不存在")
         with open(str(image_path_or_pil), "rb") as image_file:
             bytes_data = image_file.read()
     return base64.b64encode(bytes_data).decode(encoding)
 
 
 def decode_image(img_url_or_b64: str) -> Image:
-    """decode image from url or base64 into PIL.Image"""
+    """将 Base64 编码的图片或 URL 下载的图片解码为 PIL.Image。
+
+    参数：
+        img_url_or_b64 (str): 图片的 Base64 编码或 URL。
+
+    返回：
+        Image: PIL.Image 对象。
+    """
     if img_url_or_b64.startswith("http"):
-        # image http(s) url
+        # 处理 HTTP 图片 URL
         resp = requests.get(img_url_or_b64)
         img = Image.open(BytesIO(resp.content))
     else:
-        # image b64_json
+        # 处理 Base64 编码图片
         b64_data = re.sub("^data:image/.+;base64,", "", img_url_or_b64)
         img_data = BytesIO(base64.b64decode(b64_data))
         img = Image.open(img_data)
@@ -871,10 +1000,18 @@ def decode_image(img_url_or_b64: str) -> Image:
 
 
 def extract_image_paths(content: str) -> bool:
-    # We require that the path must have a space preceding it, like "xxx /an/absolute/path.jpg xxx"
+    """从文本中提取图片路径。
+
+    参数：
+        content (str): 输入文本。
+
+    返回：
+        bool: 识别到的图片路径列表。
+    """
     pattern = r"[^\s]+\.(?:png|jpe?g|gif|bmp|tiff|PNG|JPE?G|GIF|BMP|TIFF)"
     image_paths = re.findall(pattern, content)
     return image_paths
+
 
 
 def extract_and_encode_images(content: str) -> list[str]:
@@ -897,15 +1034,20 @@ See FAQ 5.8
 
 
 async def get_mime_type(filename: str | Path, force_read: bool = False) -> str:
+    # 尝试从文件名中推断 MIME 类型
     guess_mime_type, _ = mimetypes.guess_type(filename.name)
     if not guess_mime_type:
+        # 如果无法推测 MIME 类型，则根据文件扩展名进行映射
         ext_mappings = {".yml": "text/yaml", ".yaml": "text/yaml"}
         guess_mime_type = ext_mappings.get(filename.suffix)
     if not force_read and guess_mime_type:
+        # 如果没有强制读取并且已经推测出 MIME 类型，则直接返回
         return guess_mime_type
 
-    from metagpt.tools.libs.shell import shell_execute  # avoid circular import
+    # 避免循环导入
+    from metagpt.tools.libs.shell import shell_execute
 
+    # 定义一组文本 MIME 类型
     text_set = {
         "application/json",
         "application/vnd.chipnuts.karaoke-mmd",
@@ -917,12 +1059,15 @@ async def get_mime_type(filename: str | Path, force_read: bool = False) -> str:
     }
 
     try:
+        # 使用 shell 命令 `file --mime-type` 获取 MIME 类型
         stdout, stderr, _ = await shell_execute(f"file --mime-type '{str(filename)}'")
         if stderr:
             logger.debug(f"file:{filename}, error:{stderr}")
             return guess_mime_type
+        # 提取 MIME 类型
         ix = stdout.rfind(" ")
         mime_type = stdout[ix:].strip()
+        # 如果 MIME 类型为 'text/plain' 且推测类型是文本类型，则返回推测的 MIME 类型
         if mime_type == "text/plain" and guess_mime_type in text_set:
             return guess_mime_type
         return mime_type
@@ -932,12 +1077,13 @@ async def get_mime_type(filename: str | Path, force_read: bool = False) -> str:
 
 
 def get_markdown_codeblock_type(filename: str = None, mime_type: str = None) -> str:
-    """Return the markdown code-block type corresponding to the file extension."""
+    """返回与文件扩展名对应的 Markdown 代码块类型。"""
     if not filename and not mime_type:
-        raise ValueError("Either filename or mime_type must be valid.")
+        raise ValueError("必须提供有效的 filename 或 mime_type。")
 
     if not mime_type:
         mime_type, _ = mimetypes.guess_type(filename)
+    # MIME 类型与 Markdown 代码块类型的映射关系
     mappings = {
         "text/x-shellscript": "bash",
         "text/x-c++src": "cpp",
@@ -959,16 +1105,20 @@ def get_markdown_codeblock_type(filename: str = None, mime_type: str = None) -> 
 
 
 def get_project_srcs_path(workdir: str | Path) -> Path:
+    # 获取项目的源代码路径
     src_workdir_path = workdir / ".src_workspace"
     if src_workdir_path.exists():
+        # 如果 .src_workspace 文件存在，则读取源代码路径
         with open(src_workdir_path, "r") as file:
             src_name = file.read()
     else:
+        # 否则，使用工作目录的名称作为源代码路径
         src_name = Path(workdir).name
     return Path(workdir) / src_name
 
 
 async def init_python_folder(workdir: str | Path):
+    # 初始化 Python 文件夹
     if not workdir:
         return
     workdir = Path(workdir)
@@ -977,14 +1127,17 @@ async def init_python_folder(workdir: str | Path):
     init_filename = Path(workdir) / "__init__.py"
     if init_filename.exists():
         return
+    # 如果 __init__.py 文件不存在，则创建该文件
     async with aiofiles.open(init_filename, "a"):
         os.utime(init_filename, None)
 
 
 def get_markdown_code_block_type(filename: str) -> str:
+    # 根据文件扩展名返回相应的 Markdown 代码块类型
     if not filename:
         return ""
     ext = Path(filename).suffix
+    # 文件扩展名与 Markdown 代码块类型的映射
     types = {
         ".py": "python",
         ".js": "javascript",
@@ -1016,29 +1169,27 @@ def get_markdown_code_block_type(filename: str) -> str:
         ".yml": "yaml",
         ".ini": "ini",
         ".toml": "toml",
-        ".svg": "xml",  # SVG can often be treated as XML
-        # Add more file extensions and corresponding code block types as needed
+        ".svg": "xml",  # SVG 常被视为 XML 格式
+        # 可以根据需要添加更多文件扩展名和相应的代码块类型
     }
     return types.get(ext, "")
 
 
 def to_markdown_code_block(val: str, type_: str = "") -> str:
     """
-    Convert a string to a Markdown code block.
+    将字符串转换为 Markdown 代码块。
 
-    This function takes a string and wraps it in a Markdown code block.
-    If a type is provided, it adds it as a language identifier for syntax highlighting.
+    该函数将输入的字符串包裹在 Markdown 代码块中。如果提供了类型参数，会将其作为语言标识符，进行语法高亮显示。
 
-    Args:
-        val (str): The string to be converted to a Markdown code block.
-        type_ (str, optional): The language identifier for syntax highlighting.
-            Defaults to an empty string.
+    参数：
+        val (str): 要转换的字符串。
+        type_ (str, 可选): 用于语法高亮的语言标识符。默认为空字符串。
 
-    Returns:
-        str: The input string wrapped in a Markdown code block.
-            If the input string is empty, it returns an empty string.
+    返回：
+        str: 包裹在 Markdown 代码块中的输入字符串。
+            如果输入字符串为空，返回空字符串。
 
-    Examples:
+    示例：
         >>> to_markdown_code_block("print('Hello, World!')", "python")
         \n```python\nprint('Hello, World!')\n```\n
 
@@ -1053,55 +1204,53 @@ def to_markdown_code_block(val: str, type_: str = "") -> str:
 
 async def save_json_to_markdown(content: str, output_filename: str | Path):
     """
-    Saves the provided JSON content as a Markdown file.
+    将提供的 JSON 内容保存为 Markdown 文件。
 
-    This function takes a JSON string, converts it to Markdown format,
-    and writes it to the specified output file.
+    该函数将 JSON 字符串转换为 Markdown 格式，并将其写入指定的输出文件。
 
-    Args:
-        content (str): The JSON content to be converted.
-        output_filename (str or Path): The path where the output Markdown file will be saved.
+    参数：
+        content (str): 要转换的 JSON 内容。
+        output_filename (str 或 Path): 输出 Markdown 文件的路径。
 
-    Returns:
+    返回：
         None
 
-    Raises:
-        None: Any exceptions are logged and the function returns without raising them.
+    异常：
+        None: 任何异常都会被记录并且函数不会抛出异常。
 
-    Examples:
+    示例：
         >>> await save_json_to_markdown('{"key": "value"}', Path("/path/to/output.md"))
-        This will save the Markdown converted JSON to the specified file.
+        这将把转换后的 Markdown 格式的 JSON 内容保存到指定的文件。
 
-    Notes:
-        - This function handles `json.JSONDecodeError` specifically for JSON parsing errors.
-        - Any other exceptions during the process are also logged and handled gracefully.
+    注意：
+        - 该函数专门处理 `json.JSONDecodeError` 异常，用于 JSON 解析错误。
+        - 其他过程中发生的异常也会被记录并优雅地处理。
     """
     try:
         m = json.loads(content)
     except json.JSONDecodeError as e:
-        logger.warning(f"Failed to decode JSON content: {e}")
+        logger.warning(f"JSON 内容解码失败: {e}")
         return
     except Exception as e:
-        logger.warning(f"An unexpected error occurred: {e}")
+        logger.warning(f"发生意外错误: {e}")
         return
     await awrite(filename=output_filename, data=json_to_markdown(m))
 
 
 def tool2name(cls, methods: List[str], entry) -> Dict[str, Any]:
     """
-    Generates a mapping of class methods to a given entry with class name as a prefix.
+    生成类方法与给定入口的映射，类名作为前缀。
 
-    Args:
-        cls: The class from which the methods are derived.
-        methods (List[str]): A list of method names as strings.
-        entry (Any): The entry to be mapped to each method.
+    参数：
+        cls: 类，方法来自该类。
+        methods (List[str]): 方法名称列表。
+        entry (Any): 映射到每个方法的入口。
 
-    Returns:
-        Dict[str, Any]: A dictionary where keys are method names prefixed with the class name and
-                        values are the given entry. If the number of methods is less than 2,
-                        the dictionary will contain a single entry with the class name as the key.
+    返回：
+        Dict[str, Any]: 一个字典，键是类方法的名称，值是给定的入口。
+                        如果方法数量少于 2，则字典会包含一个条目，键为类名。
 
-    Example:
+    示例：
         >>> class MyClass:
         >>>     pass
         >>>
@@ -1120,30 +1269,30 @@ def tool2name(cls, methods: List[str], entry) -> Dict[str, Any]:
 
 def new_transaction_id(postfix_len=8) -> str:
     """
-    Generates a new unique transaction ID based on current timestamp and a random UUID.
+    基于当前时间戳和随机 UUID 生成一个新的唯一交易 ID。
 
-    Args:
-        postfix_len (int): Length of the random UUID postfix to include in the transaction ID. Default is 8.
+    参数：
+        postfix_len (int): 随机 UUID 后缀的长度，默认为 8。
 
-    Returns:
-        str: A unique transaction ID composed of timestamp and a random UUID.
+    返回：
+        str: 一个由时间戳和随机 UUID 组成的唯一交易 ID。
     """
     return datetime.now().strftime("%Y%m%d%H%M%ST") + uuid.uuid4().hex[0:postfix_len]
 
 
 def log_time(method):
-    """A time-consuming decorator for printing execution duration."""
+    """一个用于打印执行时长的装饰器。"""
 
     def before_call():
         start_time, cpu_start_time = time.perf_counter(), time.process_time()
-        logger.info(f"[{method.__name__}] started at: " f"{datetime.now().strftime('%Y-%m-%d %H:%m:%S')}")
+        logger.info(f"[{method.__name__}] 开始执行时间: " f"{datetime.now().strftime('%Y-%m-%d %H:%m:%S')}")
         return start_time, cpu_start_time
 
     def after_call(start_time, cpu_start_time):
         end_time, cpu_end_time = time.perf_counter(), time.process_time()
         logger.info(
-            f"[{method.__name__}] ended. "
-            f"Time elapsed: {end_time - start_time:.4} sec, CPU elapsed: {cpu_end_time - cpu_start_time:.4} sec"
+            f"[{method.__name__}] 执行结束。 "
+            f"时间耗时: {end_time - start_time:.4} sec, CPU 耗时: {cpu_end_time - cpu_start_time:.4} sec"
         )
 
     @functools.wraps(method)
@@ -1165,36 +1314,36 @@ def log_time(method):
 
 async def check_http_endpoint(url: str, timeout: int = 3) -> bool:
     """
-    Checks the status of an HTTP endpoint.
+    检查 HTTP 端点的状态。
 
-    Args:
-        url (str): The URL of the HTTP endpoint to check.
-        timeout (int, optional): The timeout in seconds for the HTTP request. Defaults to 3.
+    参数：
+        url (str): 要检查的 HTTP 端点 URL。
+        timeout (int, 可选): HTTP 请求的超时秒数。默认为 3。
 
-    Returns:
-        bool: True if the endpoint is online and responding with a 200 status code, False otherwise.
+    返回：
+        bool: 如果端点在线且返回 200 状态码，则返回 True；否则返回 False。
     """
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, timeout=timeout) as response:
                 return response.status == 200
         except Exception as e:
-            print(f"Error accessing the endpoint {url}: {e}")
+            print(f"访问端点 {url} 时发生错误: {e}")
             return False
 
 
 def rectify_pathname(path: Union[str, Path], default_filename: str) -> Path:
     """
-    Rectifies the given path to ensure a valid output file path.
+    修正给定路径，确保路径有效。
 
-    If the given `path` is a directory, it creates the directory (if it doesn't exist) and appends the `default_filename` to it. If the `path` is a file path, it creates the parent directory (if it doesn't exist) and returns the `path`.
+    如果给定的 `path` 是目录，则创建该目录（如果不存在）并附加 `default_filename`。如果 `path` 是文件路径，则创建父目录（如果不存在）并返回该路径。
 
-    Args:
-        path (Union[str, Path]): The input path, which can be a string or a `Path` object.
-        default_filename (str): The default filename to use if the `path` is a directory.
+    参数：
+        path (Union[str, Path]): 输入路径，可以是字符串或 `Path` 对象。
+        default_filename (str): 如果 `path` 是目录，则使用的默认文件名。
 
-    Returns:
-        Path: The rectified output path.
+    返回：
+        Path: 修正后的输出路径。
     """
     output_pathname = Path(path)
     if output_pathname.is_dir():
@@ -1204,20 +1353,19 @@ def rectify_pathname(path: Union[str, Path], default_filename: str) -> Path:
         output_pathname.parent.mkdir(parents=True, exist_ok=True)
     return output_pathname
 
-
 def generate_fingerprint(text: str) -> str:
     """
-    Generate a fingerprint for the given text
+    为给定的文本生成指纹值。
 
-    Args:
-        text (str): The text for which the fingerprint needs to be generated
+    参数:
+        text (str): 需要生成指纹的文本
 
-    Returns:
-        str: The fingerprint value of the text
+    返回:
+        str: 文本的指纹值
     """
     text_bytes = text.encode("utf-8")
 
-    # calculate SHA-256 hash
+    # 计算 SHA-256 哈希值
     sha256 = hashlib.sha256()
     sha256.update(text_bytes)
     fingerprint = sha256.hexdigest()
@@ -1226,16 +1374,27 @@ def generate_fingerprint(text: str) -> str:
 
 
 def download_model(file_url: str, target_folder: Path) -> Path:
-    file_name = file_url.split("/")[-1]
-    file_path = target_folder.joinpath(f"{file_name}")
-    if not file_path.exists():
-        file_path.mkdir(parents=True, exist_ok=True)
+    """
+    从给定的 URL 下载模型文件并保存到目标文件夹。
+
+    参数:
+        file_url (str): 模型文件的 URL 地址
+        target_folder (Path): 文件保存的目标文件夹路径
+
+    返回:
+        Path: 下载并保存的文件路径
+    """
+    file_name = file_url.split("/")[-1]  # 获取文件名
+    file_path = target_folder.joinpath(f"{file_name}")  # 目标文件路径
+
+    if not file_path.exists():  # 如果文件不存在，则进行下载
+        file_path.mkdir(parents=True, exist_ok=True)  # 如果目录不存在，则创建目录
         try:
-            response = requests.get(file_url, stream=True)
+            response = requests.get(file_url, stream=True)  # 以流方式请求文件
             response.raise_for_status()  # 检查请求是否成功
             # 保存文件
             with open(file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=8192):  # 分块写入文件
                     f.write(chunk)
                 logger.info(f"权重文件已下载并保存至 {file_path}")
         except requests.exceptions.HTTPError as err:

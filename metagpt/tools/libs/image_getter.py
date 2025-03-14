@@ -29,11 +29,10 @@ async () => {{
 }}
 """
 
-
 @register_tool(include_functions=["get_image"])
 class ImageGetter(BaseModel):
     """
-    A tool to get images.
+    一个用于获取图片的工具类。
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -49,7 +48,7 @@ class ImageGetter(BaseModel):
     img_element_selector: str = ".zNNw1 > div > img:nth-of-type(2)"
 
     async def start(self) -> None:
-        """Starts Playwright and launches a browser"""
+        """启动 Playwright 并启动浏览器"""
         if self.playwright is None:
             self.playwright = playwright = await async_playwright().start()
             browser = self.browser_instance = await playwright.chromium.launch(headless=self.headless, proxy=self.proxy)
@@ -58,28 +57,31 @@ class ImageGetter(BaseModel):
 
     async def get_image(self, search_term, image_save_path):
         """
-        Get an image related to the search term.
+        获取与搜索词相关的图片。
 
-        Args:
-            search_term (str): The term to search for the image. The search term must be in English. Using any other language may lead to a mismatch.
-            image_save_path (str): The file path where the image will be saved.
+        参数：
+            search_term (str): 要搜索的关键词。搜索词必须为英文，使用其他语言可能导致匹配失败。
+            image_save_path (str): 图片保存的文件路径。
+
+        返回：
+            str: 图片获取的结果消息，表示图片是否成功找到并保存。
         """
-        # Search for images from https://unsplash.com/s/photos/
+        # 从 https://unsplash.com/s/photos/ 获取图片
 
         if self.page is None:
             await self.start()
         await self.page.goto(self.url.format(search_term=search_term), wait_until="domcontentloaded")
-        # Wait until the image element is loaded
+        # 等待直到图片元素加载完成
         try:
             await self.page.wait_for_selector(self.img_element_selector)
         except TimeoutError:
-            return f"{search_term} not found. Please broaden the search term."
-        # Get the base64 code of the first  retrieved image
+            return f"{search_term} 未找到。请尝试扩大搜索范围。"
+        # 获取第一张图片的 base64 编码
         image_base64 = await self.page.evaluate(
             DOWNLOAD_PICTURE_JAVASCRIPT.format(img_element_selector=self.img_element_selector)
         )
         if image_base64:
             image = decode_image(image_base64)
             image.save(image_save_path)
-            return f"{search_term} found. The image is saved in {image_save_path}."
-        return f"{search_term} not found. Please broaden the search term."
+            return f"{search_term} 找到。图片已保存至 {image_save_path}。"
+        return f"{search_term} 未找到。请尝试扩大搜索范围。"

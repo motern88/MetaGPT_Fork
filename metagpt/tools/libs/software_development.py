@@ -27,21 +27,18 @@ from metagpt.utils.cost_manager import CostManager
 
 async def import_git_repo(url: str) -> Path:
     """
-    Imports a project from a Git website and formats it to MetaGPT project format to enable incremental appending requirements.
+    从 Git 网址导入项目，并格式化为 MetaGPT 项目格式，以支持增量需求追加。
 
-    Args:
-        url (str): The Git project URL, such as "https://github.com/geekan/MetaGPT.git".
+    参数:
+        url (str): Git 项目 URL，例如 "https://github.com/geekan/MetaGPT.git"。
 
-    Returns:
-        Path: The path of the formatted project.
+    返回:
+        Path: 格式化后的项目路径。
 
-    Example:
-        # The Git project URL to input
+    示例:
         >>> git_url = "https://github.com/geekan/MetaGPT.git"
-
-        # Import the Git repository and get the formatted project path
         >>> formatted_project_path = await import_git_repo(git_url)
-        >>> print("Formatted project path:", formatted_project_path)
+        >>> print("格式化后的项目路径:", formatted_project_path)
         /PATH/TO/THE/FORMMATTED/PROJECT
     """
     from metagpt.actions.import_repo import ImportRepo
@@ -63,19 +60,19 @@ async def import_git_repo(url: str) -> Path:
 
 async def extract_external_interfaces(acknowledge: str) -> str:
     """
-    Extracts and compresses information about external system interfaces from a given acknowledgement text.
+    提取并压缩关于外部系统接口的信息。
 
-    Args:
-        acknowledge (str): A natural text of acknowledgement containing details about external system interfaces.
+    参数:
+        acknowledge (str): 包含外部系统接口详情的文本信息。
 
-    Returns:
-        str: A compressed version of the information about external system interfaces.
+    返回:
+        str: 压缩后的外部系统接口信息。
 
-    Example:
-        >>> acknowledge = "## Interfaces\\n..."
+    示例:
+        >>> acknowledge = "## 接口信息\\n..."
         >>> external_interfaces = await extract_external_interfaces(acknowledge=acknowledge)
         >>> print(external_interfaces)
-        ```json\n[\n{\n"id": 1,\n"inputs": {...
+        ```json\n[\n{\n"id": 1,\n"inputs": {..."
     """
     compress_acknowledge = CompressExternalInterfaces()
     return await compress_acknowledge.run(acknowledge=acknowledge)
@@ -92,20 +89,20 @@ async def write_trd(
     context: Optional[Context] = None,
 ) -> str:
     """
-    Handles the writing of a Technical Requirements Document (TRD) based on user requirements.
+    生成技术需求文档 (TRD)。
 
-    Args:
-        user_requirements (str): The new/incremental user requirements.
-        use_case_actors (str): Description of the actors involved in the use case.
-        investment (float): Budget. Automatically stops optimizing TRD when the budget is overdrawn.
-        context (Context, optional): The context configuration. Default is None.
-    Returns:
-        str: The newly created TRD.
+    参数:
+        user_requirements (str): 用户的新需求或增量需求。
+        use_case_actors (str): 参与该用例的角色描述。
+        investment (float): 预算，当预算超支时停止优化 TRD。
+        context (Context, 可选): 上下文配置，默认 None。
 
-    Example:
-        >>> # Given a new user requirements, write out a new TRD.
-        >>> user_requirements = "Write a 'snake game' TRD."
-        >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
+    返回:
+        str: 生成的 TRD。
+
+    示例:
+        >>> user_requirements = "编写一个'贪吃蛇游戏'的 TRD。"
+        >>> use_case_actors = "- 角色: 游戏玩家;\\n- 系统: 贪吃蛇游戏; \\n- 外部系统: 游戏中心;"
         >>> investment = 10.0
         >>> trd = await write_trd(
         >>>     user_requirements=user_requirements,
@@ -113,7 +110,7 @@ async def write_trd(
         >>>     investment=investment,
         >>> )
         >>> print(trd)
-        ## Technical Requirements Document\n ...
+        ## 技术需求文档 (TRD)\\n ...
     """
     context = context or Context(cost_manager=CostManager(max_budget=investment))
     compress_acknowledge = CompressExternalInterfaces()
@@ -163,29 +160,29 @@ async def write_framework(
     max_loop: int = 20,
 ) -> str:
     """
-    Run the action to generate a software framework based on the provided TRD and related information.
+    生成软件框架。
 
-    Args:
-        use_case_actors (str): Description of the use case actors involved.
-        trd (str): Technical Requirements Document detailing the requirements.
-        additional_technical_requirements (str): Any additional technical requirements.
-        output_dir (str, optional): Path to save the software framework files. Default is en empty string.
-        investment (float): Budget. Automatically stops optimizing TRD when the budget is overdrawn.
-        context (Context, optional): The context configuration. Default is None.
-        max_loop(int, optional): Acts as a safety exit valve when cost statistics fail. Default is 20.
+    参数:
+        use_case_actors (str): 用例相关的角色描述。
+        trd (str): 技术需求文档 (TRD)。
+        additional_technical_requirements (str): 额外的技术需求。
+        output_dir (str, 可选): 软件框架保存路径，默认空字符串。
+        investment (float): 预算，超出预算则停止优化。
+        context (Context, 可选): 上下文配置，默认 None。
+        max_loop (int, 可选): 用于限制循环次数，避免成本统计失效，默认 20。
 
-    Returns:
-        str: The generated software framework as a string of pathnames.
+    返回:
+        str: 生成的软件框架路径信息。
 
-    Example:
-        >>> use_case_actors = "- Actor: game player;\\n- System: snake game; \\n- External System: game center;"
+    示例:
+        >>> use_case_actors = "- 角色: 游戏玩家;\\n- 系统: 贪吃蛇游戏; \\n- 外部系统: 游戏中心;"
         >>> trd = "## TRD\\n..."
-        >>> additional_technical_requirements = "Using Java language, ..."
+        >>> additional_technical_requirements = "使用 Java 语言, ..."
         >>> investment = 15.0
         >>> framework = await write_framework(
         >>>    use_case_actors=use_case_actors,
         >>>    trd=trd,
-        >>>    additional_technical_requirements=constraint,
+        >>>    additional_technical_requirements=additional_technical_requirements,
         >>>    investment=investment,
         >>> )
         >>> print(framework)
@@ -245,6 +242,33 @@ async def write_trd_and_framework(
     output_dir: Optional[str] = "",
     context: Optional[Context] = None,
 ) -> str:
+    """
+    生成 TRD 并基于 TRD 生成软件框架。
+
+    参数:
+        use_case_actors (str): 参与用例的角色描述。
+        user_requirements (str): 用户需求描述。
+        additional_technical_requirements (str): 额外的技术需求。
+        investment (float): 预算，超出预算则停止优化。
+        output_dir (str, 可选): 生成的软件框架的保存路径，默认空字符串。
+        context (Context, 可选): 上下文配置，默认 None。
+
+    返回:
+        str: 生成的软件框架信息。
+
+    示例:
+        >>> use_case_actors = "- 角色: 游戏玩家;\\n- 系统: 贪吃蛇游戏; \\n- 外部系统: 游戏中心;"
+        >>> user_requirements = "编写一个'贪吃蛇游戏'的 TRD。"
+        >>> additional_technical_requirements = "使用 Python 语言..."
+        >>> framework = await write_trd_and_framework(
+        >>>    use_case_actors=use_case_actors,
+        >>>    user_requirements=user_requirements,
+        >>>    additional_technical_requirements=additional_technical_requirements,
+        >>>    investment=50.0,
+        >>> )
+        >>> print(framework)
+        ## 软件框架\\n - /path/to/generated/framework
+    """
     context = context or Context(cost_manager=CostManager(max_budget=investment))
     trd = await write_trd(use_case_actors=use_case_actors, user_requirements=user_requirements, context=context)
     return await write_framework(

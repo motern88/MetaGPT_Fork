@@ -16,51 +16,60 @@ from metagpt.provider.base_llm import BaseLLM
 
 class OpenAIText2Image:
     def __init__(self, llm: BaseLLM):
+        """初始化 OpenAIText2Image 类
+
+        :param llm: 一个 LLM 实例，用于与模型交互。
+        """
         self.llm = llm
 
     async def text_2_image(self, text, size_type="1024x1024"):
-        """Text to image
+        """将文本转换为图像
 
-        :param text: The text used for image conversion.
-        :param size_type: One of ['256x256', '512x512', '1024x1024']
-        :return: The image data is returned in Base64 encoding.
+        :param text: 用于生成图像的文本。
+        :param size_type: 图像的尺寸，可以是 ['256x256', '512x512', '1024x1024'] 中的一个。
+        :return: 返回经过 Base64 编码的图像数据。
         """
         try:
+            # 调用 LLM 的图像生成接口
             result = await self.llm.aclient.images.generate(prompt=text, n=1, size=size_type)
         except Exception as e:
-            logger.error(f"An error occurred:{e}")
+            # 如果发生异常，记录错误并返回空字符串
+            logger.error(f"发生错误: {e}")
             return ""
         if result and len(result.data) > 0:
+            # 获取图像数据并返回
             return await OpenAIText2Image.get_image_data(result.data[0].url)
         return ""
 
     @staticmethod
     async def get_image_data(url):
-        """Fetch image data from a URL and encode it as Base64
+        """从 URL 获取图像数据并将其编码为 Base64 格式
 
-        :param url: Image url
-        :return: Base64-encoded image data.
+        :param url: 图像的 URL 地址
+        :return: 返回 Base64 编码的图像数据。
         """
         try:
+            # 使用 aiohttp 请求图像
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
-                    response.raise_for_status()  # 如果是 4xx 或 5xx 响应，会引发异常
+                    response.raise_for_status()  # 如果响应是 4xx 或 5xx 错误，抛出异常
                     image_data = await response.read()
-            return image_data
+            return image_data  # 返回图像数据
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"An error occurred:{e}")
+            # 如果发生请求异常，记录错误并返回 0
+            logger.error(f"发生错误: {e}")
             return 0
 
 
-# Export
+# 导出函数
 async def oas3_openai_text_to_image(text, size_type: str = "1024x1024", llm: BaseLLM = None):
-    """Text to image
+    """将文本转换为图像
 
-    :param text: The text used for image conversion.
-    :param size_type: One of ['256x256', '512x512', '1024x1024']
-    :param llm: LLM instance
-    :return: The image data is returned in Base64 encoding.
+    :param text: 用于生成图像的文本。
+    :param size_type: 图像的尺寸，可以是 ['256x256', '512x512', '1024x1024'] 中的一个。
+    :param llm: LLM 实例
+    :return: 返回经过 Base64 编码的图像数据。
     """
     if not text:
         return ""

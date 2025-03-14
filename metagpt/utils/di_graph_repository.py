@@ -21,40 +21,62 @@ from metagpt.utils.graph_repository import SPO, GraphRepository
 
 
 class DiGraphRepository(GraphRepository):
-    """Graph repository based on DiGraph."""
+    """基于有向图 (DiGraph) 的图存储库。"""
 
     def __init__(self, name: str | Path, **kwargs):
         super().__init__(name=str(name), **kwargs)
         self._repo = networkx.DiGraph()
 
     async def insert(self, subject: str, predicate: str, object_: str):
-        """Insert a new triple into the directed graph repository.
+        """向有向图存储库中插入一个新的三元组。
 
-        Args:
-            subject (str): The subject of the triple.
-            predicate (str): The predicate describing the relationship.
-            object_ (str): The object of the triple.
+        参数:
+            subject (str): 三元组的主语。
+            predicate (str): 描述关系的谓词。
+            object_ (str): 三元组的宾语。
 
-        Example:
+        示例:
             await my_di_graph_repo.insert(subject="Node1", predicate="connects_to", object_="Node2")
-            # Adds a directed relationship: Node1 connects_to Node2
+            # 插入一个有向关系：Node1 connects_to Node2
         """
         self._repo.add_edge(subject, object_, predicate=predicate)
 
+    async def delete(self, subject: str = None, predicate: str = None, object_: str = None) -> int:
+        """根据指定的条件删除有向图存储库中的三元组。
+
+        参数:
+            subject (str, 可选): 要过滤的三元组的主语。
+            predicate (str, 可选): 要过滤的关系谓词。
+            object_ (str, 可选): 要过滤的三元组的宾语。
+
+        返回:
+            int: 从存储库中删除的三元组数量。
+
+        示例:
+            deleted_count = await my_di_graph_repo.delete(subject="Node1", predicate="connects_to")
+            # 删除所有主语为 Node1，谓词为 'connects_to' 的有向关系。
+        """
+        rows = await self.select(subject=subject, predicate=predicate, object_=object_)
+        if not rows:
+            return 0
+        for r in rows:
+            self._repo.remove_edge(r.subject, r.object_)
+        return len(rows)
+
     async def select(self, subject: str = None, predicate: str = None, object_: str = None) -> List[SPO]:
-        """Retrieve triples from the directed graph repository based on specified criteria.
+        """根据指定的条件从有向图存储库中检索三元组。
 
-        Args:
-            subject (str, optional): The subject of the triple to filter by.
-            predicate (str, optional): The predicate describing the relationship to filter by.
-            object_ (str, optional): The object of the triple to filter by.
+        参数:
+            subject (str, 可选): 要过滤的三元组的主语。
+            predicate (str, 可选): 要过滤的关系谓词。
+            object_ (str, 可选): 要过滤的三元组的宾语。
 
-        Returns:
-            List[SPO]: A list of SPO objects representing the selected triples.
+        返回:
+            List[SPO]: 返回满足条件的三元组列表。
 
-        Example:
+        示例:
             selected_triples = await my_di_graph_repo.select(subject="Node1", predicate="connects_to")
-            # Retrieves directed relationships where Node1 is the subject and the predicate is 'connects_to'.
+            # 检索所有主语为 Node1，谓词为 'connects_to' 的有向关系。
         """
         result = []
         for s, o, p in self._repo.edges(data="predicate"):
@@ -67,40 +89,19 @@ class DiGraphRepository(GraphRepository):
             result.append(SPO(subject=s, predicate=p, object_=o))
         return result
 
-    async def delete(self, subject: str = None, predicate: str = None, object_: str = None) -> int:
-        """Delete triples from the directed graph repository based on specified criteria.
-
-        Args:
-            subject (str, optional): The subject of the triple to filter by.
-            predicate (str, optional): The predicate describing the relationship to filter by.
-            object_ (str, optional): The object of the triple to filter by.
-
-        Returns:
-            int: The number of triples deleted from the repository.
-
-        Example:
-            deleted_count = await my_di_graph_repo.delete(subject="Node1", predicate="connects_to")
-            # Deletes directed relationships where Node1 is the subject and the predicate is 'connects_to'.
-        """
-        rows = await self.select(subject=subject, predicate=predicate, object_=object_)
-        if not rows:
-            return 0
-        for r in rows:
-            self._repo.remove_edge(r.subject, r.object_)
-        return len(rows)
 
     def json(self) -> str:
-        """Convert the directed graph repository to a JSON-formatted string."""
+        """将有向图存储库转换为 JSON 格式的字符串。"""
         m = networkx.node_link_data(self._repo)
         data = json.dumps(m)
         return data
 
     async def save(self, path: str | Path = None):
-        """Save the directed graph repository to a JSON file.
+        """将有向图存储库保存为 JSON 文件。
 
-        Args:
-            path (Union[str, Path], optional): The directory path where the JSON file will be saved.
-                If not provided, the default path is taken from the 'root' key in the keyword arguments.
+        参数:
+            path (Union[str, Path], 可选): 保存 JSON 文件的目录路径。
+                如果未提供，将使用关键字参数中的 'root' 键的默认路径。
         """
         data = self.json()
         path = path or self._kwargs.get("root")
@@ -110,24 +111,22 @@ class DiGraphRepository(GraphRepository):
         await awrite(filename=pathname.with_suffix(".json"), data=data, encoding="utf-8")
 
     async def load(self, pathname: str | Path):
-        """Load a directed graph repository from a JSON file."""
+        """从 JSON 文件加载有向图存储库。"""
         data = await aread(filename=pathname, encoding="utf-8")
         self.load_json(data)
 
     def load_json(self, val: str):
         """
-        Loads a JSON-encoded string representing a graph structure and updates
-        the internal repository (_repo) with the parsed graph.
+        加载表示图结构的 JSON 编码字符串，并使用解析后的图更新内部存储库 (_repo)。
 
-        Args:
-            val (str): A JSON-encoded string representing a graph structure.
+        参数:
+            val (str): 表示图结构的 JSON 编码字符串。
 
-        Returns:
-            self: Returns the instance of the class with the updated _repo attribute.
+        返回:
+            self: 返回更新后的类实例，内部存储库 (_repo) 已更新。
 
-        Raises:
-            TypeError: If val is not a valid JSON string or cannot be parsed into
-                       a valid graph structure.
+        异常:
+            TypeError: 如果 val 不是有效的 JSON 字符串或无法解析为有效的图结构。
         """
         if not val:
             return self
@@ -137,13 +136,13 @@ class DiGraphRepository(GraphRepository):
 
     @staticmethod
     async def load_from(pathname: str | Path) -> GraphRepository:
-        """Create and load a directed graph repository from a JSON file.
+        """从 JSON 文件创建并加载有向图存储库。
 
-        Args:
-            pathname (Union[str, Path]): The path to the JSON file to be loaded.
+        参数:
+            pathname (Union[str, Path]): 要加载的 JSON 文件的路径。
 
-        Returns:
-            GraphRepository: A new instance of the graph repository loaded from the specified JSON file.
+        返回:
+            GraphRepository: 从指定 JSON 文件加载的图存储库的新实例。
         """
         pathname = Path(pathname)
         graph = DiGraphRepository(name=pathname.stem, root=pathname.parent)
@@ -153,16 +152,16 @@ class DiGraphRepository(GraphRepository):
 
     @property
     def root(self) -> str:
-        """Return the root directory path for the graph repository files."""
+        """返回图存储库文件的根目录路径。"""
         return self._kwargs.get("root")
 
     @property
     def pathname(self) -> Path:
-        """Return the path and filename to the graph repository file."""
+        """返回图存储库文件的路径和文件名。"""
         p = Path(self.root) / self.name
         return p.with_suffix(".json")
 
     @property
     def repo(self):
-        """Get the underlying directed graph repository."""
+        """获取底层的有向图存储库。"""
         return self._repo

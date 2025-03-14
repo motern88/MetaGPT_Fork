@@ -24,34 +24,34 @@ TAGS = ["data preprocessing", "machine learning"]
 class MLProcess:
     def fit(self, df: pd.DataFrame):
         """
-        Fit a model to be used in subsequent transform.
+        训练模型，用于后续转换。
 
-        Args:
-            df (pd.DataFrame): The input DataFrame.
+        参数:
+            df (pd.DataFrame): 输入的 DataFrame。
         """
         raise NotImplementedError
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform the input DataFrame with the fitted model.
+        使用已训练的模型转换输入的 DataFrame。
 
-        Args:
-            df (pd.DataFrame): The input DataFrame.
+        参数:
+            df (pd.DataFrame): 输入的 DataFrame。
 
-        Returns:
-            pd.DataFrame: The transformed DataFrame.
+        返回:
+            pd.DataFrame: 转换后的 DataFrame。
         """
         raise NotImplementedError
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Fit and transform the input DataFrame.
+        训练并转换输入的 DataFrame。
 
-        Args:
-            df (pd.DataFrame): The input DataFrame.
+        参数:
+            df (pd.DataFrame): 输入的 DataFrame。
 
-        Returns:
-            pd.DataFrame: The transformed DataFrame.
+        返回:
+            pd.DataFrame: 转换后的 DataFrame。
         """
         self.fit(df)
         return self.transform(df)
@@ -59,18 +59,18 @@ class MLProcess:
 
 class DataPreprocessTool(MLProcess):
     """
-    Completing a data preprocessing operation.
+    执行数据预处理操作。
     """
 
     def __init__(self, features: list):
         """
-        Initialize self.
+        初始化 self。
 
-        Args:
-            features (list): Columns to be processed.
+        参数:
+            features (list): 需要处理的列名。
         """
         self.features = features
-        self.model = None  # to be filled by specific subclass Tool
+        self.model = None  # 由具体子类填充
 
     def fit(self, df: pd.DataFrame):
         if len(self.features) == 0:
@@ -88,21 +88,17 @@ class DataPreprocessTool(MLProcess):
 @register_tool(tags=TAGS)
 class FillMissingValue(DataPreprocessTool):
     """
-    Completing missing values with simple strategies.
+    使用简单策略填充缺失值。
     """
 
-    def __init__(
-        self, features: list, strategy: Literal["mean", "median", "most_frequent", "constant"] = "mean", fill_value=None
-    ):
+    def __init__(self, features: list, strategy: Literal["mean", "median", "most_frequent", "constant"] = "mean", fill_value=None):
         """
-        Initialize self.
+        初始化 self。
 
-        Args:
-            features (list): Columns to be processed.
-            strategy (Literal["mean", "median", "most_frequent", "constant"], optional): The imputation strategy, notice 'mean' and 'median' can only
-                                      be used for numeric features. Defaults to 'mean'.
-            fill_value (int, optional): Fill_value is used to replace all occurrences of missing_values.
-                                        Defaults to None.
+        参数:
+            features (list): 需要处理的列名。
+            strategy (Literal["mean", "median", "most_frequent", "constant"], optional): 填充策略，注意 'mean' 和 'median' 只能用于数值类型特征。默认 'mean'。
+            fill_value (int, optional): 填充值，用于替换所有缺失值。默认 None。
         """
         self.features = features
         self.model = SimpleImputer(strategy=strategy, fill_value=fill_value)
@@ -111,7 +107,7 @@ class FillMissingValue(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class MinMaxScale(DataPreprocessTool):
     """
-    Transform features by scaling each feature to a range, which is (0, 1).
+    通过缩放每个特征到 (0, 1) 范围来转换特征。
     """
 
     def __init__(self, features: list):
@@ -122,7 +118,7 @@ class MinMaxScale(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class StandardScale(DataPreprocessTool):
     """
-    Standardize features by removing the mean and scaling to unit variance.
+    通过去除均值并缩放到单位方差来标准化特征。
     """
 
     def __init__(self, features: list):
@@ -133,7 +129,7 @@ class StandardScale(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class MaxAbsScale(DataPreprocessTool):
     """
-    Scale each feature by its maximum absolute value.
+    通过最大绝对值缩放每个特征。
     """
 
     def __init__(self, features: list):
@@ -144,7 +140,7 @@ class MaxAbsScale(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class RobustScale(DataPreprocessTool):
     """
-    Apply the RobustScaler to scale features using statistics that are robust to outliers.
+    使用对异常值具有鲁棒性的统计数据来缩放特征。
     """
 
     def __init__(self, features: list):
@@ -155,7 +151,7 @@ class RobustScale(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class OrdinalEncode(DataPreprocessTool):
     """
-    Encode categorical features as ordinal integers.
+    将类别特征编码为有序整数。
     """
 
     def __init__(self, features: list):
@@ -166,7 +162,7 @@ class OrdinalEncode(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class OneHotEncode(DataPreprocessTool):
     """
-    Apply one-hot encoding to specified categorical columns, the original columns will be dropped.
+    对指定的类别列应用独热编码，原始列将被删除。
     """
 
     def __init__(self, features: list):
@@ -185,15 +181,15 @@ class OneHotEncode(DataPreprocessTool):
 @register_tool(tags=TAGS)
 class LabelEncode(DataPreprocessTool):
     """
-    Apply label encoding to specified categorical columns in-place.
+    对指定的类别列进行标签编码，直接在原始数据上修改。
     """
 
     def __init__(self, features: list):
         """
-        Initialize self.
+        初始化 self。
 
-        Args:
-            features (list): Categorical columns to be label encoded.
+        参数:
+            features (list): 需要标签编码的类别列。
         """
         self.features = features
         self.le_encoders = []
@@ -220,14 +216,14 @@ class LabelEncode(DataPreprocessTool):
 
 def get_column_info(df: pd.DataFrame) -> dict:
     """
-    Analyzes a DataFrame and categorizes its columns based on data types.
+    分析 DataFrame 并根据数据类型将列分类。
 
-    Args:
-        df (pd.DataFrame): The DataFrame to be analyzed.
+    参数:
+        df (pd.DataFrame): 需要分析的 DataFrame。
 
-    Returns:
-        dict: A dictionary with four keys ('Category', 'Numeric', 'Datetime', 'Others').
-              Each key corresponds to a list of column names belonging to that category.
+    返回:
+        dict: 包含四个键（'Category'，'Numeric'，'Datetime'，'Others'）的字典。
+              每个键对应一个包含该类别列名的列表。
     """
     column_info = {
         "Category": [],

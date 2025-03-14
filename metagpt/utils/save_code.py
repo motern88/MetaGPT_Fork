@@ -9,32 +9,30 @@ import nbformat
 from metagpt.const import DATA_PATH
 from metagpt.utils.common import write_json_file
 
-
 def save_code_file(name: str, code_context: str, file_format: str = "py") -> None:
     """
-    Save code files to a specified path.
+    将代码文件保存到指定路径。
 
-    Args:
-    - name (str): The name of the folder to save the files.
-    - code_context (str): The code content.
-    - file_format (str, optional): The file format. Supports 'py' (Python file), 'json' (JSON file), and 'ipynb' (Jupyter Notebook file). Default is 'py'.
+    参数：
+    - name (str): 要保存的文件夹名称。
+    - code_context (str): 代码内容。
+    - file_format (str, 可选): 文件格式，支持 'py'（Python 文件），'json'（JSON 文件），和 'ipynb'（Jupyter Notebook 文件）。默认为 'py'。
 
-
-    Returns:
+    返回值：
     - None
     """
-    # Create the folder path if it doesn't exist
+    # 如果文件夹不存在，则创建该文件夹
     os.makedirs(name=DATA_PATH / "output" / f"{name}", exist_ok=True)
 
-    # Choose to save as a Python file or a JSON file based on the file format
+    # 根据文件格式选择保存为 Python 文件或 JSON 文件
     file_path = DATA_PATH / "output" / f"{name}/code.{file_format}"
     if file_format == "py":
         file_path.write_text(code_context + "\n\n", encoding="utf-8")
     elif file_format == "json":
-        # Parse the code content as JSON and save
+        # 将代码内容解析为 JSON 并保存
         data = {"code": code_context}
         write_json_file(file_path, data, encoding="utf-8", indent=2)
     elif file_format == "ipynb":
         nbformat.write(code_context, file_path)
     else:
-        raise ValueError("Unsupported file format. Please choose 'py', 'json', or 'ipynb'.")
+        raise ValueError("不支持的文件格式。请选择 'py'、'json' 或 'ipynb'。")

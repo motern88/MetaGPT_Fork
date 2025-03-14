@@ -19,32 +19,32 @@ from metagpt.utils.common import CodeParser
 from metagpt.utils.repair_llm_raw_output import RepairType, repair_llm_raw_output
 
 TOOL_INFO_PROMPT = """
-## Capabilities
-- You can utilize pre-defined tools in any code lines from 'Available Tools' in the form of Python class or function.
-- You can freely combine the use of any other public packages, like sklearn, numpy, pandas, etc..
+## 功能
+- 你可以在任何代码行中使用“可用工具”中预定义的工具，形式为 Python 类或函数。
+- 你可以自由组合使用其他公共包，如 sklearn、numpy、pandas 等。
 
-## Available Tools:
-Each tool is described in JSON format. When you call a tool, import the tool from its path first.
+## 可用工具：
+每个工具的描述为 JSON 格式。当你调用某个工具时，首先从其路径导入该工具。
 {tool_schemas}
 """
 
 
 TOOL_RECOMMENDATION_PROMPT = """
-## User Requirement:
+## 用户需求：
 {current_task}
 
-## Task
-Recommend up to {topk} tools from 'Available Tools' that can help solve the 'User Requirement'. 
+## 任务
+推荐最多 {topk} 个能帮助解决“用户需求”的工具。
 
-## Available Tools:
+## 可用工具：
 {available_tools}
 
-## Tool Selection and Instructions:
-- Select tools most relevant to completing the 'User Requirement'.
-- If you believe that no tools are suitable, indicate with an empty list.
-- Only list the names of the tools, not the full schema of each tool.
-- Ensure selected tools are listed in 'Available Tools'.
-- Output a json list of tool names:
+## 工具选择和说明：
+- 选择与完成“用户需求”最相关的工具。
+- 如果认为没有合适的工具，返回一个空列表。
+- 只列出工具名称，不需要列出每个工具的完整模式。
+- 确保选中的工具存在于“可用工具”中。
+- 输出一个 JSON 格式的工具名称列表：
 ```json
 ["tool_name1", "tool_name2", ...]
 ```
@@ -53,49 +53,49 @@ Recommend up to {topk} tools from 'Available Tools' that can help solve the 'Use
 
 class ToolRecommender(BaseModel):
     """
-    The default ToolRecommender:
-    1. Recall: To be implemented in subclasses. Recall tools based on the given context and plan.
-    2. Rank: Use LLM to select final candidates from recalled set.
+     默认的 ToolRecommender 类:
+     1. Recall: 由子类实现。根据给定的上下文和计划召回工具。
+     2. Rank: 使用 LLM 从召回的工具集中选择最终候选工具。
     """
 
-    tools: dict[str, Tool] = {}
-    force: bool = False  # whether to forcedly recommend the specified tools
+    tools: dict[str, Tool] = {}  # 工具字典，存储所有可用的工具
+    force: bool = False  # 是否强制推荐指定的工具
 
     @field_validator("tools", mode="before")
     @classmethod
     def validate_tools(cls, v: list[str]) -> dict[str, Tool]:
-        # If `v` is already a dictionary (e.g., during deserialization), return it as is.
+        """
+        校验工具列表，并根据需要转换成工具字典
+        """
         if isinstance(v, dict):
             return v
 
-        # One can use special symbol ["<all>"] to indicate use of all registered tools
         if v == ["<all>"]:
             return TOOL_REGISTRY.get_all_tools()
         else:
             return validate_tool_names(v)
 
     async def recommend_tools(
-        self, context: str = "", plan: Plan = None, recall_topk: int = 20, topk: int = 5
+            self, context: str = "", plan: Plan = None, recall_topk: int = 20, topk: int = 5
     ) -> list[Tool]:
         """
-        Recommends a list of tools based on the given context and plan. The recommendation process includes two stages: recall from a large pool and rank the recalled tools to select the final set.
+        根据给定的上下文和计划推荐一组工具。推荐过程包括两个阶段：从大池中召回工具并对召回的工具进行排序，选择最终的工具集合。
 
-        Args:
-            context (str): The context for tool recommendation.
-            plan (Plan): The plan for tool recommendation.
-            recall_topk (int): The number of tools to recall in the initial step.
-            topk (int): The number of tools to return after rank as final recommendations.
+        参数:
+            context (str): 工具推荐的上下文。
+            plan (Plan): 工具推荐的计划。
+            recall_topk (int): 在召回阶段从工具池中选择的工具数量。
+            topk (int): 排序后返回的最终推荐工具数量。
 
-        Returns:
-            list[Tool]: A list of recommended tools.
+        返回:
+            list[Tool]: 推荐的工具列表。
         """
 
         if not self.tools:
             return []
 
         if self.force or (not context and not plan):
-            # directly use what users have specified as result for forced recommendation;
-            # directly use the whole set if there is no useful information
+            # 如果是强制推荐或者没有有效的上下文和计划，直接返回用户指定的工具
             return list(self.tools.values())
 
         recalled_tools = await self.recall_tools(context=context, plan=plan, topk=recall_topk)
@@ -104,13 +104,13 @@ class ToolRecommender(BaseModel):
 
         ranked_tools = await self.rank_tools(recalled_tools=recalled_tools, context=context, plan=plan, topk=topk)
 
-        logger.info(f"Recommended tools: \n{[tool.name for tool in ranked_tools]}")
+        logger.info(f"推荐的工具： \n{[tool.name for tool in ranked_tools]}")
 
         return ranked_tools
 
     async def get_recommended_tool_info(self, fixed: list[str] = None, **kwargs) -> str:
         """
-        Wrap recommended tools with their info in a string, which can be used directly in a prompt.
+        将推荐的工具信息以字符串的形式包装起来，适合在提示语中直接使用。
         """
         recommended_tools = await self.recommend_tools(**kwargs)
         if fixed:
@@ -122,15 +122,26 @@ class ToolRecommender(BaseModel):
 
     async def recall_tools(self, context: str = "", plan: Plan = None, topk: int = 20) -> list[Tool]:
         """
-        Retrieves a list of relevant tools from a large pool, based on the given context and plan.
+        从大池中根据上下文和计划召回相关工具。
+
+        需要在子类中实现。
         """
         raise NotImplementedError
 
     async def rank_tools(
-        self, recalled_tools: list[Tool], context: str = "", plan: Plan = None, topk: int = 5
+            self, recalled_tools: list[Tool], context: str = "", plan: Plan = None, topk: int = 5
     ) -> list[Tool]:
         """
-        Default rank methods for a ToolRecommender. Use LLM to rank the recalled tools based on the given context, plan, and topk value.
+        默认的工具排序方法。使用 LLM 根据上下文和计划对召回的工具进行排序，并返回最终的推荐工具。
+
+        参数:
+            recalled_tools (list[Tool]): 召回的工具列表。
+            context (str): 工具推荐的上下文。
+            plan (Plan): 工具推荐的计划。
+            topk (int): 排序后返回的最终推荐工具数量。
+
+        返回:
+            list[Tool]: 排序后的推荐工具列表。
         """
         current_task = plan.current_task.instruction if plan else context
 
@@ -142,7 +153,7 @@ class ToolRecommender(BaseModel):
         )
         rsp = await LLM().aask(prompt, stream=False)
 
-        # 临时方案，待role zero的版本完成可将本注释内的代码直接替换掉
+        # 临时方案，待 role zero 的版本完成可将本注释内的代码直接替换掉
         # -------------开始---------------
         try:
             ranked_tools = CodeParser.parse_code(block=None, lang="json", text=rsp)
@@ -156,13 +167,13 @@ class ToolRecommender(BaseModel):
             tb = traceback.format_exc()
             print(tb)
 
-        # 为了对LLM不按格式生成进行容错
+        # 为了对 LLM 不按格式生成进行容错
         if isinstance(ranked_tools, dict):
             ranked_tools = list(ranked_tools.values())[0]
         # -------------结束---------------
 
         if not isinstance(ranked_tools, list):
-            logger.warning(f"Invalid rank result: {ranked_tools}, will use the recalled tools instead.")
+            logger.warning(f"无效的排序结果：{ranked_tools}，将使用召回的工具代替。")
             ranked_tools = list(available_tools.keys())
 
         valid_tools = validate_tool_names(ranked_tools)
@@ -172,57 +183,69 @@ class ToolRecommender(BaseModel):
 
 class TypeMatchToolRecommender(ToolRecommender):
     """
-    A legacy ToolRecommender using task type matching at the recall stage:
-    1. Recall: Find tools based on exact match between task type and tool tag;
-    2. Rank: LLM rank, the same as the default ToolRecommender.
+    传统的工具推荐器，使用任务类型匹配在召回阶段：
+    1. 召回：根据任务类型与工具标签的精确匹配来找到工具；
+    2. 排序：使用 LLM 对召回的工具进行排序，排序方式与默认的 ToolRecommender 相同。
     """
 
     async def recall_tools(self, context: str = "", plan: Plan = None, topk: int = 20) -> list[Tool]:
         if not plan:
+            # 如果没有计划，直接返回用户指定的前 `topk` 个工具
             return list(self.tools.values())[:topk]
 
-        # find tools based on exact match between task type and tool tag
+        # 根据任务类型与工具标签的精确匹配来查找工具
         task_type = plan.current_task.task_type
+        # 从工具注册表中获取符合任务类型标签的工具
         candidate_tools = TOOL_REGISTRY.get_tools_by_tag(task_type)
         candidate_tool_names = set(self.tools.keys()) & candidate_tools.keys()
+        # 选择与任务类型匹配的工具
         recalled_tools = [candidate_tools[tool_name] for tool_name in candidate_tool_names][:topk]
 
-        logger.info(f"Recalled tools: \n{[tool.name for tool in recalled_tools]}")
+        logger.info(f"召回的工具: \n{[tool.name for tool in recalled_tools]}")
 
         return recalled_tools
 
 
 class BM25ToolRecommender(ToolRecommender):
     """
-    A ToolRecommender using BM25 at the recall stage:
-    1. Recall: Querying tool descriptions with task instruction if plan exists. Otherwise, return all user-specified tools;
-    2. Rank: LLM rank, the same as the default ToolRecommender.
+    使用 BM25 算法在召回阶段推荐工具：
+    1. 召回：通过任务指令查询工具描述，如果计划存在；如果没有计划，则返回用户指定的所有工具；
+    2. 排序：使用 LLM 对召回的工具进行排序，排序方式与默认的 ToolRecommender 相同。
     """
 
     bm25: Any = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # 初始化语料库
         self._init_corpus()
 
     def _init_corpus(self):
+        # 通过将工具名称、标签和描述结合在一起生成语料库
         corpus = [f"{tool.name} {tool.tags}: {tool.schemas['description']}" for tool in self.tools.values()]
+        # 将语料库中的每篇文档进行分词
         tokenized_corpus = [self._tokenize(doc) for doc in corpus]
+        # 初始化 BM25 模型
         self.bm25 = BM25Okapi(tokenized_corpus)
 
     def _tokenize(self, text):
-        return text.split()  # FIXME: needs more sophisticated tokenization
+        # 目前的分词方式较简单，返回按空格分开的单词，可能需要改进
+        return text.split()
 
     async def recall_tools(self, context: str = "", plan: Plan = None, topk: int = 20) -> list[Tool]:
+        # 如果有计划，则使用计划中的任务指令；否则，使用上下文
         query = plan.current_task.instruction if plan else context
 
+        # 对查询进行分词
         query_tokens = self._tokenize(query)
+        # 获取与查询最相关的文档的分数
         doc_scores = self.bm25.get_scores(query_tokens)
+        # 获取与查询最相关的前 `topk` 个工具
         top_indexes = np.argsort(doc_scores)[::-1][:topk]
         recalled_tools = [list(self.tools.values())[index] for index in top_indexes]
 
         logger.info(
-            f"Recalled tools: \n{[tool.name for tool in recalled_tools]}; Scores: {[np.round(doc_scores[index], 4) for index in top_indexes]}"
+            f"召回的工具: \n{[tool.name for tool in recalled_tools]}; 分数: {[np.round(doc_scores[index], 4) for index in top_indexes]}"
         )
 
         return recalled_tools
@@ -230,14 +253,15 @@ class BM25ToolRecommender(ToolRecommender):
 
 class EmbeddingToolRecommender(ToolRecommender):
     """
-    NOTE: To be implemented.
-    A ToolRecommender using embeddings at the recall stage:
-    1. Recall: Use embeddings to calculate the similarity between query and tool info;
-    2. Rank: LLM rank, the same as the default ToolRecommender.
+    说明：待实现。
+    使用嵌入（Embedding）在召回阶段推荐工具：
+    1. 召回：使用嵌入计算查询与工具信息的相似度；
+    2. 排序：使用 LLM 对召回的工具进行排序，排序方式与默认的 ToolRecommender 相同。
     """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     async def recall_tools(self, context: str = "", plan: Plan = None, topk: int = 20) -> list[Tool]:
+        # 尚未实现
         pass

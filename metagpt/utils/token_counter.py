@@ -167,10 +167,10 @@ QIANFAN_ENDPOINT_TOKEN_COSTS = {
 }
 
 """
-DashScope Token price https://help.aliyun.com/zh/dashscope/developer-reference/tongyi-thousand-questions-metering-and-billing
-Different model has different detail page. Attention, some model are free for a limited time.
-Some new model published by Alibaba will be prioritized to be released on the Model Studio instead of the Dashscope.
-Token price on Model Studio shows on https://help.aliyun.com/zh/model-studio/getting-started/models#ced16cb6cdfsy
+DashScope Token 价格：https://help.aliyun.com/zh/dashscope/developer-reference/tongyi-thousand-questions-metering-and-billing
+不同的模型有不同的详情页面。请注意，某些模型在有限的时间内是免费的。
+阿里巴巴发布的一些新模型将优先在 Model Studio 上发布，而不是在 DashScope 上发布。
+Model Studio 上的 Token 价格可以查看：https://help.aliyun.com/zh/model-studio/getting-started/models#ced16cb6cdfsy
 """
 DASHSCOPE_TOKEN_COSTS = {
     "qwen2.5-72b-instruct": {"prompt": 0.00057, "completion": 0.0017},  # per 1k tokens
@@ -404,9 +404,9 @@ SPARK_TOKENS = {
 
 
 def count_message_tokens(messages, model="gpt-3.5-turbo-0125"):
-    """Return the number of tokens used by a list of messages."""
+    """返回一组消息所使用的 token 数量。"""
     if "claude" in model:
-        # rough estimation for models newer than claude-2.1
+        # 对于较新的 claude 模型（如 claude-2.1），进行粗略估算
         vo = anthropic.Client()
         num_tokens = 0
         for message in messages:
@@ -414,112 +414,91 @@ def count_message_tokens(messages, model="gpt-3.5-turbo-0125"):
                 num_tokens += vo.count_tokens(str(value))
         return num_tokens
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        encoding = tiktoken.encoding_for_model(model)  # 获取指定模型的编码方式
     except KeyError:
-        logger.info(f"Warning: model {model} not found in tiktoken. Using cl100k_base encoding.")
-        encoding = tiktoken.get_encoding("cl100k_base")
+        logger.info(f"警告：模型 {model} 未在 tiktoken 中找到。使用 cl100k_base 编码。")
+        encoding = tiktoken.get_encoding("cl100k_base")  # 如果模型不在 tiktoken 中，使用 cl100k_base 编码
     if model in {
-        "gpt-3.5-turbo-0613",
-        "gpt-3.5-turbo-16k-0613",
-        "gpt-35-turbo",
-        "gpt-35-turbo-16k",
-        "gpt-3.5-turbo-16k",
-        "gpt-3.5-turbo-1106",
-        "gpt-3.5-turbo-0125",
-        "gpt-4-0314",
-        "gpt-4-32k-0314",
-        "gpt-4-0613",
-        "gpt-4-32k-0613",
-        "gpt-4-turbo",
-        "gpt-4-turbo-preview",
-        "gpt-4-0125-preview",
-        "gpt-4-1106-preview",
-        "gpt-4-turbo",
-        "gpt-4-vision-preview",
-        "gpt-4-1106-vision-preview",
-        "gpt-4o",
-        "gpt-4o-2024-05-13",
-        "gpt-4o-2024-08-06",
-        "gpt-4o-mini",
-        "gpt-4o-mini-2024-07-18",
-        "o1-preview",
-        "o1-preview-2024-09-12",
-        "o1-mini",
-        "o1-mini-2024-09-12",
+        "gpt-3.5-turbo-0613", "gpt-3.5-turbo-16k-0613", "gpt-35-turbo", "gpt-35-turbo-16k",
+        "gpt-3.5-turbo-16k", "gpt-3.5-turbo-1106", "gpt-3.5-turbo-0125", "gpt-4-0314",
+        "gpt-4-32k-0314", "gpt-4-0613", "gpt-4-32k-0613", "gpt-4-turbo", "gpt-4-turbo-preview",
+        "gpt-4-0125-preview", "gpt-4-1106-preview", "gpt-4-turbo", "gpt-4-vision-preview",
+        "gpt-4-1106-vision-preview", "gpt-4o", "gpt-4o-2024-05-13", "gpt-4o-2024-08-06",
+        "gpt-4o-mini", "gpt-4o-mini-2024-07-18", "o1-preview", "o1-preview-2024-09-12",
+        "o1-mini", "o1-mini-2024-09-12",
     }:
-        tokens_per_message = 3  # # every reply is primed with <|start|>assistant<|message|>
-        tokens_per_name = 1
+        tokens_per_message = 3  # 每条回复前会添加 <|start|>，每条消息消耗 3 个 token
+        tokens_per_name = 1  # 每个名称消耗 1 个 token
     elif model == "gpt-3.5-turbo-0301":
-        tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
-        tokens_per_name = -1  # if there's a name, the role is omitted
+        tokens_per_message = 4  # 每条消息后跟随 <|start|>{role/name}\n{content}<|end|>\n
+        tokens_per_name = -1  # 如果有名称，则省略角色
     elif "gpt-3.5-turbo" == model:
-        logger.info("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0125.")
+        logger.info("警告：gpt-3.5-turbo 可能随时间更新。返回的 token 数量假设为 gpt-3.5-turbo-0125 的结果。")
         return count_message_tokens(messages, model="gpt-3.5-turbo-0125")
     elif "gpt-4" == model:
-        logger.info("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
+        logger.info("警告：gpt-4 可能随时间更新。返回的 token 数量假设为 gpt-4-0613 的结果。")
         return count_message_tokens(messages, model="gpt-4-0613")
     elif "open-llm-model" == model:
         """
-        For self-hosted open_llm api, they include lots of different models. The message tokens calculation is
-        inaccurate. It's a reference result.
+        对于自托管的 open_llm API，它们包含许多不同的模型。消息的 token 计算不准确，返回结果仅供参考。
         """
-        tokens_per_message = 0  # ignore conversation message template prefix
+        tokens_per_message = 0  # 忽略会话消息模板前缀
         tokens_per_name = 0
     else:
         raise NotImplementedError(
-            f"num_tokens_from_messages() is not implemented for model {model}. "
-            f"See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken "
-            f"for information on how messages are converted to tokens."
+            f"num_tokens_from_messages() 未实现 {model} 模型的计算方法。"
+            f"请参见 https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken "
+            f"了解如何将消息转换为 token。"
         )
     num_tokens = 0
     for message in messages:
-        num_tokens += tokens_per_message
+        num_tokens += tokens_per_message  # 每条消息加上固定的 token 数
         for key, value in message.items():
             content = value
             if isinstance(value, list):
-                # for gpt-4v
+                # 处理 gpt-4v（如视觉模型）
                 for item in value:
                     if isinstance(item, dict) and item.get("type") in ["text"]:
                         content = item.get("text", "")
-            num_tokens += len(encoding.encode(content))
+            num_tokens += len(encoding.encode(content))  # 计算内容所消耗的 token 数
             if key == "name":
-                num_tokens += tokens_per_name
-    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+                num_tokens += tokens_per_name  # 如果有名称，则加上名称所消耗的 token
+    num_tokens += 3  # 每条回复会额外添加 <|start|> 消耗 3 个 token
     return num_tokens
 
 
 def count_output_tokens(string: str, model: str) -> int:
     """
-    Returns the number of tokens in a text string.
+    返回文本字符串中的 token 数量。
 
-    Args:
-        string (str): The text string.
-        model (str): The name of the encoding to use. (e.g., "gpt-3.5-turbo")
+    参数：
+        string (str): 文本字符串。
+        model (str): 使用的编码模型名称。（例如： "gpt-3.5-turbo"）
 
-    Returns:
-        int: The number of tokens in the text string.
+    返回：
+        int: 文本字符串中包含的 token 数量。
     """
     if "claude" in model:
         vo = anthropic.Client()
         num_tokens = vo.count_tokens(string)
         return num_tokens
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        encoding = tiktoken.encoding_for_model(model)  # 获取指定模型的编码方式
     except KeyError:
-        logger.info(f"Warning: model {model} not found in tiktoken. Using cl100k_base encoding.")
-        encoding = tiktoken.get_encoding("cl100k_base")
-    return len(encoding.encode(string))
+        logger.info(f"警告：模型 {model} 未在 tiktoken 中找到。使用 cl100k_base 编码。")
+        encoding = tiktoken.get_encoding("cl100k_base")  # 如果模型不在 tiktoken 中，使用 cl100k_base 编码
+    return len(encoding.encode(string))  # 返回字符串的 token 数
 
 
 def get_max_completion_tokens(messages: list[dict], model: str, default: int) -> int:
-    """Calculate the maximum number of completion tokens for a given model and list of messages.
+    """计算给定模型和消息列表下的最大完成 token 数量。
 
-    Args:
-        messages: A list of messages.
-        model: The model name.
+    参数：
+        messages: 消息列表。
+        model: 模型名称。
 
-    Returns:
-        The maximum number of completion tokens.
+    返回：
+        最大的完成 token 数量。
     """
     if model not in TOKEN_MAX:
         return default

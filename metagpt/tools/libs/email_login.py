@@ -2,48 +2,50 @@ from imap_tools import MailBox
 
 from metagpt.tools.tool_registry import register_tool
 
-# Define a dictionary mapping email domains to their IMAP server addresses
+# 定义一个字典，将邮箱域名映射到其 IMAP 服务器地址
 IMAP_SERVERS = {
     "outlook.com": "imap-mail.outlook.com",  # Outlook
-    "163.com": "imap.163.com",  # 163 Mail
-    "qq.com": "imap.qq.com",  # QQ Mail
+    "163.com": "imap.163.com",  # 163 邮箱
+    "qq.com": "imap.qq.com",  # QQ 邮箱
     "gmail.com": "imap.gmail.com",  # Gmail
-    "yahoo.com": "imap.mail.yahoo.com",  # Yahoo Mail
-    "icloud.com": "imap.mail.me.com",  # iCloud Mail
-    "hotmail.com": "imap-mail.outlook.com",  # Hotmail (同 Outlook)
-    "live.com": "imap-mail.outlook.com",  # Live (同 Outlook)
-    "sina.com": "imap.sina.com",  # Sina Mail
-    "sohu.com": "imap.sohu.com",  # Sohu Mail
-    "yahoo.co.jp": "imap.mail.yahoo.co.jp",  # Yahoo Mail Japan
-    "yandex.com": "imap.yandex.com",  # Yandex Mail
-    "mail.ru": "imap.mail.ru",  # Mail.ru
-    "aol.com": "imap.aol.com",  # AOL Mail
-    "gmx.com": "imap.gmx.com",  # GMX Mail
-    "zoho.com": "imap.zoho.com",  # Zoho Mail
+    "yahoo.com": "imap.mail.yahoo.com",  # Yahoo 邮箱
+    "icloud.com": "imap.mail.me.com",  # iCloud 邮箱
+    "hotmail.com": "imap-mail.outlook.com",  # Hotmail (与 Outlook 相同)
+    "live.com": "imap-mail.outlook.com",  # Live (与 Outlook 相同)
+    "sina.com": "imap.sina.com",  # 新浪邮箱
+    "sohu.com": "imap.sohu.com",  # 搜狐邮箱
+    "yahoo.co.jp": "imap.mail.yahoo.co.jp",  # 日本 Yahoo 邮箱
+    "yandex.com": "imap.yandex.com",  # Yandex 邮箱
+    "mail.ru": "imap.mail.ru",  # Mail.ru 邮箱
+    "aol.com": "imap.aol.com",  # AOL 邮箱
+    "gmx.com": "imap.gmx.com",  # GMX 邮箱
+    "zoho.com": "imap.zoho.com",  # Zoho 邮箱
 }
 
 
 @register_tool(tags=["email login"])
 def email_login_imap(email_address, email_password):
     """
-    Use imap_tools package to log in to your email (the email that supports IMAP protocol) to verify and return the account object.
+    使用 imap_tools 包登录支持 IMAP 协议的邮箱，验证并返回账户对象。
 
-    Args:
-        email_address (str): Email address that needs to be logged in and linked.
-        email_password (str): Password for the email address that needs to be logged in and linked.
+    参数：
+        email_address (str): 需要登录并关联的邮箱地址。
+        email_password (str): 需要登录并关联的邮箱密码。
 
-    Returns:
-        object: The imap_tools's MailBox object returned after successfully connecting to the mailbox through imap_tools, including various information about this account (email, etc.), or None if login fails.
+    返回：
+        object: 成功连接到邮箱后返回的 imap_tools 的 MailBox 对象，包含有关该账户的各种信息（如邮箱等），
+                如果登录失败则返回 None。
     """
 
-    # Extract the domain from the email address
+    # 从邮箱地址中提取域名
     domain = email_address.split("@")[-1]
 
-    # Determine the correct IMAP server
+    # 获取正确的 IMAP 服务器地址
     imap_server = IMAP_SERVERS.get(domain)
 
-    assert imap_server, f"IMAP server for {domain} not found."
+    # 如果没有找到对应的 IMAP 服务器，则抛出异常
+    assert imap_server, f"未找到 {domain} 的 IMAP 服务器。"
 
-    # Attempt to log in to the email account
+    # 尝试使用 imap_tools 登录邮箱
     mailbox = MailBox(imap_server).login(email_address, email_password)
     return mailbox

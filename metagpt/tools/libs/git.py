@@ -12,7 +12,7 @@ from github.PullRequest import PullRequest
 from metagpt.tools.tool_registry import register_tool
 
 
-@register_tool(tags=["software development", "git", "create a git pull request or merge request"])
+@register_tool(tags=["软件开发", "git", "创建 git pull 请求或 merge 请求"])
 async def git_create_pull(
     base: str,
     head: str,
@@ -24,26 +24,26 @@ async def git_create_pull(
     issue: Optional[Issue] = None,
 ) -> PullRequest:
     """
-    Creates a pull request on a Git repository. Use this tool in priority over Browser to create a pull request.
+    在 Git 仓库上创建一个 pull 请求。优先使用此工具，而不是浏览器工具来创建 pull 请求。
 
-    Args:
-        base (str): The name of the base branch where the pull request will be merged.
-        head (str): The name of the branch that contains the changes for the pull request.
-        app_name (str): The name of the platform hosting the repository (e.g., "github", "gitlab", "bitbucket").
-        base_repo_name (str): The full name of the target repository (in the format "user/repo") where the pull request will be created.
-        head_repo_name (Optional[str]): The full name of the source repository (in the format "user/repo") from which the changes will be pulled.
-        title (Optional[str]): The title of the pull request. Defaults to None.
-        body (Optional[str]): The description or body content of the pull request. Defaults to None.
-        issue (Optional[Issue]): An optional issue related to the pull request. Defaults to None.
+    参数：
+        base (str): 目标分支的名称，pull 请求将在此分支上合并。
+        head (str): 包含 pull 请求变更的分支的名称。
+        app_name (str): 托管仓库的平台名称（例如："github"、"gitlab"、"bitbucket"）。
+        base_repo_name (str): 目标仓库的完整名称（格式为 "user/repo"），pull 请求将在此仓库中创建。
+        head_repo_name (Optional[str]): 源仓库的完整名称（格式为 "user/repo"），从该仓库拉取变更。默认为 None。
+        title (Optional[str]): pull 请求的标题。默认为 None。
+        body (Optional[str]): pull 请求的描述或正文内容。默认为 None。
+        issue (Optional[Issue]): 与 pull 请求相关的可选问题。默认为 None。
 
-    Example:
-        >>> # create pull request
+    示例：
+        >>> # 创建 pull 请求
         >>> base_repo_name = "geekan/MetaGPT"
         >>> head_repo_name = "ioris/MetaGPT"
         >>> base = "master"
         >>> head = "feature/http"
-        >>> title = "feat: modify http lib",
-        >>> body = "Change HTTP library used to send requests"
+        >>> title = "feat: 修改 HTTP 库"
+        >>> body = "更改用于发送请求的 HTTP 库"
         >>> app_name = "github"
         >>> pr = await git_create_pull(
         >>>   base_repo_name=base_repo_name,
@@ -56,13 +56,13 @@ async def git_create_pull(
         >>> )
         >>> if isinstance(pr, PullRequest):
         >>>     print(pr)
-        PullRequest("feat: modify http lib")
+        PullRequest("feat: 修改 HTTP 库")
         >>> if isinstance(pr, str):
-        >>>     print(f"Visit this url to create a new pull request: '{pr}'")
-        Visit this url to create a new pull request: 'https://github.com/geekan/MetaGPT/compare/master...iorisa:MetaGPT:feature/http'
+        >>>     print(f"访问此网址以创建新的 pull 请求: '{pr}'")
+        访问此网址以创建新的 pull 请求: 'https://github.com/geekan/MetaGPT/compare/master...iorisa:MetaGPT:feature/http'
 
-    Returns:
-        PullRequest: The created pull request.
+    返回：
+        PullRequest: 创建的 pull 请求。
     """
     from metagpt.utils.git_repository import GitRepository
 
@@ -92,7 +92,7 @@ async def git_create_pull(
     )
 
 
-@register_tool(tags=["software development", "create a git issue"])
+@register_tool(tags=["软件开发", "创建 git 问题"])
 async def git_create_issue(
     repo_name: str,
     title: str,
@@ -100,20 +100,20 @@ async def git_create_issue(
     body: Optional[str] = None,
 ) -> Issue:
     """
-    Creates an issue on a Git repository.
+    在 Git 仓库中创建一个问题。
 
-    Args:
-        repo_name (str): The name of the repository.
-        title (str): The title of the issue.
-        access_token (str): The access token for authentication. Use `get_env` to get access token.
-        body (Optional[str], optional): The body of the issue. Defaults to None.
+    参数：
+        repo_name (str): 仓库的名称。
+        title (str): 问题的标题。
+        access_token (str): 用于身份验证的访问令牌。可以使用 `get_env` 获取访问令牌。
+        body (Optional[str], optional): 问题的正文内容。默认为 None。
 
-    Example:
+    示例：
         >>> repo_name = "geekan/MetaGPT"
-        >>> title = "This is a new issue"
+        >>> title = "这是一个新问题"
         >>> from metagpt.tools.libs import get_env
         >>> access_token = await get_env(key="access_token", app_name="github")
-        >>> body = "This is the issue body."
+        >>> body = "这是问题的正文内容。"
         >>> issue = await git_create_issue(
         >>>   repo_name=repo_name,
         >>>   title=title,
@@ -121,10 +121,10 @@ async def git_create_issue(
         >>>   body=body,
         >>> )
         >>> print(issue)
-        Issue("This is a new issue")
+        Issue("这是一个新问题")
 
-    Returns:
-        Issue: The created issue.
+    返回：
+        Issue: 创建的问题。
     """
     from metagpt.utils.git_repository import GitRepository
 

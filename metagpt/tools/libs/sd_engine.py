@@ -57,57 +57,56 @@ default_negative_prompt = "(easynegative:0.8),black, dark,Low resolution"
     include_functions=["__init__", "simple_run_t2i", "run_t2i", "construct_payload", "save"],
 )
 class SDEngine:
-    """Generate image using stable diffusion model.
+    """基于 Stable Diffusion 生成图像的类。
 
-    This class provides methods to interact with a stable diffusion service to generate images based on text inputs.
+    该类提供了与 Stable Diffusion 服务交互的方法，根据文本输入生成图像。
     """
 
     def __init__(self, sd_url=""):
-        """Initialize the SDEngine instance with configuration.
+        """初始化 SDEngine 实例。
 
-        Args:
-            sd_url (str, optional): URL of the stable diffusion service. Defaults to "".
+        参数：
+            sd_url (str, 可选): Stable Diffusion 服务的 URL，默认为 ""。
         """
         self.sd_url = SD_URL if not sd_url else sd_url
         self.sd_t2i_url = f"{self.sd_url}/sdapi/v1/txt2img"
-        # Define default payload settings for SD API
-        self.payload = payload
+        self.payload = payload  # 设定默认请求参数
         logger.info(self.sd_t2i_url)
 
     def construct_payload(
-        self,
-        prompt: object,
-        negtive_prompt: object = default_negative_prompt,
-        width: object = 512,
-        height: object = 512,
-        sd_model: object = "galaxytimemachinesGTM_photoV20",
-    ) -> object:
-        """Modify and set the API parameters for image generation.
+            self,
+            prompt: str,
+            negtive_prompt: str = default_negative_prompt,
+            width: int = 512,
+            height: int = 512,
+            sd_model: str = "galaxytimemachinesGTM_photoV20",
+    ) -> dict:
+        """构造并修改用于图像生成的 API 请求参数。
 
-        Args:
-            prompt (str): Text input for image generation.
-            negtive_prompt (str, optional): Text input for negative prompts. Defaults to None.
-            width (int, optional): Width of the generated image in pixels. Defaults to 512.
-            height (int, optional): Height of the generated image in pixels. Defaults to 512.
-            sd_model (str, optional): The model to use for image generation. Defaults to "galaxytimemachinesGTM_photoV20".
+        参数：
+            prompt (str): 用于生成图像的文本提示。
+            negtive_prompt (str, 可选): 负面提示词，默认为 default_negative_prompt。
+            width (int, 可选): 生成图像的宽度（像素）。
+            height (int, 可选): 生成图像的高度（像素）。
+            sd_model (str, 可选): 指定使用的 Stable Diffusion 模型，默认为 "galaxytimemachinesGTM_photoV20"。
 
-        Returns:
-            dict: Updated parameters for the stable diffusion API.
+        返回：
+            dict: 更新后的请求参数字典。
         """
         self.payload["prompt"] = prompt
         self.payload["negative_prompt"] = negtive_prompt
         self.payload["width"] = width
         self.payload["height"] = height
         self.payload["override_settings"]["sd_model_checkpoint"] = sd_model
-        logger.info(f"call sd payload is {self.payload}")
+        logger.info(f"调用 SD 请求参数: {self.payload}")
         return self.payload
 
     def save(self, imgs, save_name=""):
-        """Save generated images to the output directory.
+        """保存生成的图像到输出目录。
 
-        Args:
-            imgs (str): Generated images.
-            save_name (str, optional): Output image name. Default is empty.
+        参数：
+            imgs (list): 生成的图像数据（base64 编码）。
+            save_name (str, 可选): 保存的图像文件名，默认为空。
         """
         save_dir = SOURCE_ROOT / SD_OUTPUT_FILE_REPO
         if not save_dir.exists():
@@ -115,14 +114,14 @@ class SDEngine:
         batch_decode_base64_to_image(imgs, str(save_dir), save_name=save_name)
 
     def simple_run_t2i(self, payload: dict, auto_save: bool = True):
-        """Run the stable diffusion API for multiple prompts, calling the stable diffusion API to generate images.
+        """调用 Stable Diffusion API 生成图像。
 
-        Args:
-            payload (dict): Dictionary of input parameters for the stable diffusion API.
-            auto_save (bool, optional): Save generated images automatically. Defaults to True.
+        参数：
+            payload (dict): 请求参数字典。
+            auto_save (bool, 可选): 是否自动保存生成的图像，默认为 True。
 
-        Returns:
-            list: The generated images as a result of the API call.
+        返回：
+            list: API 返回的生成图像（base64 编码）。
         """
         with requests.Session() as session:
             logger.debug(self.sd_t2i_url)
@@ -135,10 +134,10 @@ class SDEngine:
         return results
 
     async def run_t2i(self, payloads: list):
-        """Run the stable diffusion API for multiple prompts asynchronously.
+        """异步调用 Stable Diffusion API 批量生成图像。
 
-        Args:
-            payloads (list): list of payload, each payload is a dictionary of input parameters for the stable diffusion API.
+        参数：
+            payloads (list): 请求参数列表，每个元素是一个字典。
         """
         session = ClientSession()
         for payload_idx, payload in enumerate(payloads):
@@ -147,15 +146,15 @@ class SDEngine:
         await session.close()
 
     async def run(self, url, payload, session):
-        """Perform the HTTP POST request to the SD API.
+        """执行 HTTP POST 请求，调用 SD API。
 
-        Args:
-            url (str): The API URL.
-            payload (dict): The payload for the request.
-            session (ClientSession): The session for making HTTP requests.
+        参数：
+            url (str): API URL。
+            payload (dict): 请求参数字典。
+            session (ClientSession): HTTP 请求会话。
 
-        Returns:
-            list: Images generated by the stable diffusion API.
+        返回：
+            list: 生成的图像数据（base64 编码）。
         """
         async with session.post(url, json=payload, timeout=600) as rsp:
             data = await rsp.read()
@@ -163,11 +162,17 @@ class SDEngine:
         rsp_json = json.loads(data)
         imgs = rsp_json["images"]
 
-        logger.info(f"callback rsp json is {rsp_json.keys()}")
+        logger.info(f"API 响应 JSON 数据: {rsp_json.keys()}")
         return imgs
 
 
 def decode_base64_to_image(img, save_name):
+    """解码 base64 图像并保存。
+
+    参数：
+        img (str): base64 编码的图像数据。
+        save_name (str): 保存的文件名。
+    """
     image = Image.open(io.BytesIO(base64.b64decode(img.split(",", 1)[0])))
     pnginfo = PngImagePlugin.PngInfo()
     logger.info(save_name)
@@ -176,6 +181,13 @@ def decode_base64_to_image(img, save_name):
 
 
 def batch_decode_base64_to_image(imgs, save_dir="", save_name=""):
+    """批量解码 base64 图像并保存。
+
+    参数：
+        imgs (list): base64 编码的图像列表。
+        save_dir (str, 可选): 保存目录。
+        save_name (str, 可选): 保存文件名前缀。
+    """
     for idx, _img in enumerate(imgs):
         save_name = join(save_dir, save_name)
         decode_base64_to_image(_img, save_name=save_name)

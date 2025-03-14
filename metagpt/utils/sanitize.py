@@ -13,24 +13,24 @@ from typing import Dict, Generator, List, Optional, Set, Tuple
 import tree_sitter_python
 from tree_sitter import Language, Node, Parser
 
-
 class NodeType(Enum):
-    CLASS = "class_definition"
-    FUNCTION = "function_definition"
-    IMPORT = ["import_statement", "import_from_statement"]
-    IDENTIFIER = "identifier"
-    ATTRIBUTE = "attribute"
-    RETURN = "return_statement"
-    EXPRESSION = "expression_statement"
-    ASSIGNMENT = "assignment"
+    """定义代码中不同节点的类型"""
+    CLASS = "class_definition"  # 类定义
+    FUNCTION = "function_definition"  # 函数定义
+    IMPORT = ["import_statement", "import_from_statement"]  # 导入语句
+    IDENTIFIER = "identifier"  # 标识符
+    ATTRIBUTE = "attribute"  # 属性
+    RETURN = "return_statement"  # 返回语句
+    EXPRESSION = "expression_statement"  # 表达式语句
+    ASSIGNMENT = "assignment"  # 赋值语句
 
 
 def traverse_tree(node: Node) -> Generator[Node, None, None]:
     """
-    Traverse the tree structure starting from the given node.
+    遍历从给定节点开始的树结构。
 
-    :param node: The root node to start the traversal from.
-    :return: A generator object that yields nodes in the tree.
+    :param node: 起始遍历的根节点。
+    :return: 一个生成器，逐个返回树中的节点。
     """
     cursor = node.walk()
     depth = 0
@@ -51,6 +51,13 @@ def traverse_tree(node: Node) -> Generator[Node, None, None]:
 
 
 def syntax_check(code, verbose=False):
+    """
+    检查代码的语法是否正确。
+
+    :param code: 要检查的代码字符串。
+    :param verbose: 是否打印详细的异常信息。
+    :return: 如果语法正确则返回 True，否则返回 False。
+    """
     try:
         ast.parse(code)
         return True
@@ -61,6 +68,12 @@ def syntax_check(code, verbose=False):
 
 
 def code_extract(text: str) -> str:
+    """
+    提取代码中最长的有效语法块。
+
+    :param text: 输入的代码字符串。
+    :return: 提取出的最长有效代码块。
+    """
     lines = text.split("\n")
     longest_line_pair = (0, 0)
     longest_so_far = 0
@@ -78,12 +91,24 @@ def code_extract(text: str) -> str:
 
 
 def get_definition_name(node: Node) -> str:
+    """
+    获取节点定义的名称（如类或函数名称）。
+
+    :param node: 代码节点。
+    :return: 定义的名称（字符串）。
+    """
     for child in node.children:
         if child.type == NodeType.IDENTIFIER.value:
             return child.text.decode("utf8")
 
 
 def has_return_statement(node: Node) -> bool:
+    """
+    检查给定节点是否包含返回语句。
+
+    :param node: 代码节点。
+    :return: 如果包含返回语句则返回 True，否则返回 False。
+    """
     traverse_nodes = traverse_tree(node)
     for node in traverse_nodes:
         if node.type == NodeType.RETURN.value:
@@ -92,6 +117,12 @@ def has_return_statement(node: Node) -> bool:
 
 
 def get_deps(nodes: List[Tuple[str, Node]]) -> Dict[str, Set[str]]:
+    """
+    获取节点之间的依赖关系。
+
+    :param nodes: 节点名称与节点对象的元组列表。
+    :return: 一个字典，键为节点名称，值为该节点的依赖节点名称集合。
+    """
     def dfs_get_deps(node: Node, deps: Set[str]) -> None:
         for child in node.children:
             if child.type == NodeType.IDENTIFIER.value:
@@ -108,6 +139,13 @@ def get_deps(nodes: List[Tuple[str, Node]]) -> Dict[str, Set[str]]:
 
 
 def get_function_dependency(entrypoint: str, call_graph: Dict[str, str]) -> Set[str]:
+    """
+    获取某个入口点函数的依赖关系。
+
+    :param entrypoint: 入口点函数的名称。
+    :param call_graph: 函数调用图，键为函数名称，值为该函数的调用节点。
+    :return: 一个集合，包含所有与入口点相关的函数名称。
+    """
     queue = [entrypoint]
     visited = {entrypoint}
     while queue:
@@ -123,14 +161,12 @@ def get_function_dependency(entrypoint: str, call_graph: Dict[str, str]) -> Set[
 
 def sanitize(code: str, entrypoint: Optional[str] = None) -> str:
     """
-    Sanitize and extract relevant parts of the given Python code.
-    This function parses the input code, extracts import statements, class and function definitions,
-    and variable assignments. If an entrypoint is provided, it only includes definitions that are
-    reachable from the entrypoint in the call graph.
+    清理并提取给定Python代码的相关部分。
+    此函数解析输入代码，提取导入语句、类和函数定义以及变量赋值。如果提供了入口点，则仅包括入口点可达的定义部分。
 
-    :param code: The input Python code as a string.
-    :param entrypoint: Optional name of a function to use as the entrypoint for dependency analysis.
-    :return: A sanitized version of the input code, containing only relevant parts.
+    :param code: 输入的Python代码。
+    :param entrypoint: 可选的入口点函数名称，用于依赖关系分析。
+    :return: 清理后的代码字符串，只包含相关部分。
     """
     code = code_extract(code)
     code_bytes = bytes(code, "utf8")
