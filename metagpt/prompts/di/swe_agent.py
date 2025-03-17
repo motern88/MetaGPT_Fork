@@ -5,11 +5,11 @@ https://github.com/princeton-nlp/SWE-agent/tree/main/config/configs
 """
 
 MINIMAL_EXAMPLE = """
-## Example of a actions trajectory
-User Requirement and Issue: Fix the bug in the repo. Because the environment is not available, you DO NOT need to run and modify any existing test case files or add new test case files to ensure that the bug is fixed.
+## 行动轨迹示例
+用户需求和问题：修复仓库中的 bug。由于环境不可用，你**不需要**运行和修改任何现有的测试用例文件或添加新的测试用例文件来确保 bug 已修复。
 
-### Read and understand issue:
-Thought: Firstly, I need to review the detailed information of this issue in order to understand the problem that needs fixing.
+### 阅读并理解问题：
+思考：首先，我需要查看此问题的详细信息，以了解需要修复的问题。
 {{
     "command_name": "Browser.goto",
     "args": {{
@@ -18,8 +18,8 @@ Thought: Firstly, I need to review the detailed information of this issue in ord
 }}
 ->
 
-### Locate issue(Require): Locate the issue in the code by searching for the relevant file, function, or class and open the file to view the code.
-Thought: I need to come under the repo path
+### 定位问题（需求）：通过搜索相关文件、函数或类来定位问题，并打开文件查看代码。
+思考：我需要进入仓库路径
 {{
     "command_name": "Bash.run",
     "args": {{
@@ -28,7 +28,7 @@ Thought: I need to come under the repo path
 }}
 ->
 
-Thought: Let's start by locating the `openai_api.py` file.\nFirst, let's search for the `openai_api.py` file.
+思考：让我们从定位 `openai_api.py` 文件开始。\n首先，搜索 `openai_api.py` 文件。
 {{
     "command_name": "Bash.run",
     "args": {{
@@ -37,7 +37,7 @@ Thought: Let's start by locating the `openai_api.py` file.\nFirst, let's search 
 }}
 ->
 
-Thought: We have located both the `openai_api.py` file. Let's start by opening the `openai_api.py` file to apply the necessary changes.",
+思考：我们已经定位到 `openai_api.py` 文件。让我们打开该文件以应用必要的更改。
 {{
     "command_name": "Bash.run",
     "args": {{
@@ -46,16 +46,16 @@ Thought: We have located both the `openai_api.py` file. Let's start by opening t
 }}
 ->
 
-### Fix the Bug(Require): Fix the bug in the code by editing the relevant function, class or code snippet.
-Thought: Now that I've found the bug, let's fix it by edit.
+### 修复 Bug（需求）：通过编辑相关函数、类或代码片段来修复 bug。
+思考：现在我已经找到了 bug，让我们通过编辑来修复它。
 {{
     "command_name": "Bash.run",
     "args": {{
-        "cmd": "edit 93:95 <<EOF\n        usage = None\n        collected_messages = []\n        async for chunk in response:\n            if chunk.usage is not None:\n                usage = CompletionUsage(**chunk.usage)\n            chunk_message = chunk.choices[0].delta.content or '' if chunk.choices else ''  # extract the message\n            finish_reason = (\n                chunk.choices[0].finish_reason if chunk.choices and hasattr(chunk.choices[0], 'finish_reason') else None\n            )\n            log_llm_stream(chunk_message)\nEOF"
+        "cmd": "edit 93:95 <<EOF\n        usage = None\n        collected_messages = []\n        async for chunk in response:\n            if chunk.usage is not None:\n                usage = CompletionUsage(**chunk.usage)\n            chunk_message = chunk.choices[0].delta.content or '' if chunk.choices else ''  # 提取消息\n            finish_reason = (\n                chunk.choices[0].finish_reason if chunk.choices and hasattr(chunk.choices[0], 'finish_reason') else None\n            )\n            log_llm_stream(chunk_message)\nEOF"
     }}
 }}
 ->
-Thought: Due to a syntax error related to an undefined name 'Image', we need to address this issue even though it is not directly related to our work. Let's try importing the package to fix it.
+思考：由于与未定义名称 'Image' 相关的语法错误，我们需要解决这个问题，尽管它与我们的工作没有直接关系。让我们尝试导入包来修复它。
 {{
     "command_name": "Bash.run",
     "args": {{
@@ -64,11 +64,11 @@ Thought: Due to a syntax error related to an undefined name 'Image', we need to 
 }}
 ->
 
-### Save the Changes (Required): After all changes have been made, save them to the repository.
-> You must choose one of the following two methods.
+### 保存更改（需求）：完成所有更改后，将其保存到仓库中。
+> 你必须选择以下两种方法之一。
 
-#### Just save the changes locally, it only need one action.
-Thought: The bug has been fixed. Let's submit the changes.
+#### 仅本地保存更改，只需一个操作。
+思考：bug 已修复。让我们提交更改。
 {{
     "command_name": "Bash.run",
     "args": {{
@@ -77,10 +77,10 @@ Thought: The bug has been fixed. Let's submit the changes.
 }}
 ->
 
-#### Save the changes and commit them to the remote repository.
+#### 保存更改并将其提交到远程仓库。
 
-##### Push the changes from the local repository to the remote repository.
-Thought: All changes have been saved, let's push the code to the remote repository.
+##### 将更改从本地仓库推送到远程仓库。
+思考：所有更改已保存，让我们将代码推送到远程仓库。
 {{
     "command_name": "Bash.run",
     "args": {{
@@ -89,8 +89,8 @@ Thought: All changes have been saved, let's push the code to the remote reposito
 }}
 ->
 
-##### Create a pull request (Optional): Merge the changes from the new branch into the master branch.
-Thought: Now that the changes have been pushed to the remote repository, due to the user's requirement, let's create a pull request to merge the changes into the master branch.
+##### 创建拉取请求（可选）：将新分支的更改合并到主分支。
+思考：现在更改已推送到远程仓库，根据用户需求，让我们创建一个拉取请求以将更改合并到主分支。
 [{{
     "command_name": "git_create_pull",
     "args": {{
@@ -99,14 +99,14 @@ Thought: Now that the changes have been pushed to the remote repository, due to 
         "base_repo_name": "garylin2099/MetaGPT",
         "head_repo_name": "seeker-jie/MetaGPT",
         "app_name": "github",
-        "title": "Fix Issue #1275: produced TypeError: openai.types.completion_usage.CompletionUsage() argument after ** must be a mapping, not NoneType"",
-        "body": "This pull request addresses issue #1275 by ensuring that chunk.usage is not None before passing it to CompletionUsage."
+        "title": "修复问题 #1275：产生 TypeError: openai.types.completion_usage.CompletionUsage() ** 后的参数必须是映射，而不是 NoneType",
+        "body": "此拉取请求通过确保 chunk.usage 不为 None 后再传递给 CompletionUsage 来解决问题 #1275。"
    }}
 }}]
 ->
 
-### Finally
-Thought: All task has been done, let's end the conversation.
+### 最后
+思考：所有任务已完成，让我们结束对话。
 {{
     "command_name": "end"
 }}
@@ -114,93 +114,94 @@ Thought: All task has been done, let's end the conversation.
 
 
 IMPORTANT_TIPS = """
-1. If you run a command and it doesn't work, try running a different command. A command that did not work once will not work the second time unless you modify it! 
+1. 如果你运行一个命令但没有成功，尝试运行另一个命令。一个失败的命令不会在第二次运行时成功，除非你修改它！
 
-2. If you open a file and need to get to an area around a specific line that is not in the first 100 lines, say line 583, don't just use the scroll_down command multiple times. Instead, use the goto 583 command. It's much quicker. 
+2. 如果你打开一个文件并需要跳转到特定行（例如第583行），不要多次使用 `scroll_down` 命令。相反，使用 `goto 583` 命令，这样更快。
 
-3. Always make sure to look at the currently open file and the current working directory (which appears right after the currently open file). The currently open file might be in a different directory than the working directory! Note that some commands, such as 'create', open files, so they might change the current  open file.
+3. 始终确保查看当前打开的文件和当前工作目录（显示在当前打开文件之后）。当前打开的文件可能与工作目录不同！注意，某些命令（如 `create`）会打开文件，因此可能会更改当前打开的文件。
 
-4. When editing files, it is easy to accidentally specify a wrong line number or to write code with incorrect indentation. Always check the code after you issue an edit to make sure that it reflects what you wanted to accomplish. If it didn't, issue another command to fix it.
+4. 编辑文件时，很容易错误地指定行号或编写缩进不正确的代码。在编辑后始终检查代码，确保它符合你的预期。如果不符合，请使用另一个命令修复它。
 
-5. After editing, verify the changes to ensure correct line numbers and proper indentation. Adhere to PEP8 standards for Python code.
+5. 编辑后，验证更改以确保行号正确且缩进符合规范。对于 Python 代码，遵循 PEP8 标准。
 
-6. NOTE ABOUT THE EDIT COMMAND: Indentation really matters! When editing a file, make sure to insert appropriate indentation before each line! Ensuring the code adheres to PEP8 standards. If a edit command fails, you can try to edit the file again to correct the indentation, but don't repeat the same command without changes.
+6. **关于编辑命令的注意事项**：缩进非常重要！编辑文件时，确保在每行前插入适当的缩进！确保代码符合 PEP8 标准。如果编辑命令失败，可以尝试再次编辑文件以纠正缩进，但不要重复相同的命令。
 
-7. YOU CAN ONLY ENTER ONE COMMAND AT A TIME and must wait for feedback, plan your commands carefully. 
+7. **你一次只能输入一个命令**，并且必须等待反馈，因此请仔细规划你的命令。
 
-8. You cannot use any interactive session commands (e.g. python, vim) in this environment, but you can write scripts and run them. E.g. you can write a python script and then run it with `python <script_name>.py`.
+8. 你不能在此环境中使用任何交互式会话命令（例如 `python`、`vim`），但可以编写脚本并运行它们。例如，你可以编写一个 Python 脚本，然后使用 `python <脚本名称>.py` 运行它。
 
-9. To avoid syntax errors when editing files multiple times, consider opening the file to view the surrounding code related to the error line and make modifications based on this context.
+9. 为了避免多次编辑文件时出现语法错误，考虑打开文件查看与错误行相关的上下文代码，并基于此上下文进行修改。
 
-10. When using the `edit` command, remember it operates within a closed range. This is crucial to prevent accidental deletion of non-targeted code during code replacement.
+10. 使用 `edit` 命令时，请记住它操作的是一个闭合范围。这对于防止在代码替换期间意外删除非目标代码至关重要。
 
-11. Ensure to observe the currently open file and the current working directory, which is displayed right after the open file. The open file might be in a different directory than the working directory. Remember, commands like 'create' open files and might alter the current open file.
+11. 确保观察当前打开的文件和当前工作目录，它们显示在打开文件之后。打开的文件可能与工作目录不同。记住，像 `create` 这样的命令会打开文件，并可能更改当前打开的文件。
 
-12. Effectively using Use search commands (`search_dir`, `search_file`, `find_file`) and navigation commands (`open`, `goto`) to locate and modify files efficiently. Follow these steps and considerations for optimal results:
+12. 有效使用搜索命令（`search_dir`、`search_file`、`find_file`）和导航命令（`open`、`goto`）以高效定位和修改文件。遵循以下步骤和注意事项以获得最佳结果：
 
-    **General Search Guidelines:**
-    - Ensure you are in the repository's root directory before starting your search.
-    - Always double-check the current working directory and the currently open file to avoid confusion.
-    - Avoid repeating failed search commands without modifications to improve efficiency.
+    **通用搜索指南：**
+    - 在开始搜索之前，确保你在仓库的根目录中。
+    - 始终仔细检查当前工作目录和当前打开的文件，以避免混淆。
+    - 避免重复失败的搜索命令，除非进行了修改以提高效率。
 
-    **Strategies for Searching and Navigating Files:**
+    **搜索和导航文件的策略：**
 
-    1. **If you know the file's location:**
-       - Use the `open` command directly to open the file.
-       - Use `search_file` to find the `search_term` within the currently open file.
-       - Alternatively, use the `goto` command to jump to the specified line.
-       - **Boundary Consideration:** Ensure the file path is correctly specified and accessible.
+    1. **如果你知道文件的位置：**
+       - 直接使用 `open` 命令打开文件。
+       - 使用 `search_file` 在当前打开的文件中查找 `search_term`。
+       - 或者，使用 `goto` 命令跳转到指定行。
+       - **边界注意事项**：确保文件路径正确且可访问。
 
-    2. **If you know the filename but not the exact location:**
-       - Use `find_file` to locate the file in the directory.
-       - Use `open` to open the file once located.
-       - Use `search_file` to find the `search_term` within the file.
-       - Use `goto` to jump to the specified line if needed.
-       - **Boundary Consideration:** Handle cases where the file may exist in multiple directories by verifying the correct path before opening.
+    2. **如果你知道文件名但不知道确切位置：**
+       - 使用 `find_file` 在目录中定位文件。
+       - 找到文件后使用 `open` 打开文件。
+       - 使用 `search_file` 在文件中查找 `search_term`。
+       - 如果需要，使用 `goto` 跳转到指定行。
+       - **边界注意事项**：如果文件可能存在于多个目录中，请在打开前验证正确的路径。
 
-    3. **If you know the symbol but not the file's location:**
-       - Use `search_dir_and_preview` to find files containing the symbol within the directory.
-       - Review the search results to identify the relevant file(s).
-       - Use `open` to open the identified file.
-       - Use `search_file` to locate the `search_term` within the open file.
-       - Use `goto` to jump to the specified line.
-       - **Boundary Consideration:** Be thorough in reviewing multiple search results to ensure you open the correct file. Consider using more specific search terms if initial searches return too many results.
+    3. **如果你知道符号但不知道文件的位置：**
+       - 使用 `search_dir_and_preview` 在目录中查找包含该符号的文件。
+       - 查看搜索结果以识别相关文件。
+       - 使用 `open` 打开识别的文件。
+       - 使用 `search_file` 在打开的文件中查找 `search_term`。
+       - 使用 `goto` 跳转到指定行。
+       - **边界注意事项**：仔细查看多个搜索结果，确保打开正确的文件。如果初始搜索结果过多，请考虑使用更具体的搜索词。
 
-    **Search Tips:**
-    - The `<search_term>` for `search_dir_and_preview`, `find_file`, or `search_file` should be an existing class name, function name, or file name.
-    - Enclose terms like `def` or `class` in quotes when searching for functions or classes (e.g., `search_dir_and_preview 'def apow'` or `search_file 'class Pow'`).
-    - Use wildcard characters (`*`, `?`) in search terms to broaden or narrow down your search scope.
-    - If search commands return too many results, refine your search criteria or use more specific terms.
-    - If a search command fails, modify the search criteria and check for typos or incorrect paths, then try again.
-    - Based on feedback of observation or bash command in trajectory to guide adjustments in your search strategy.
+    **搜索技巧：**
+    - `search_dir_and_preview`、`find_file` 或 `search_file` 的 `<search_term>` 应该是现有的类名、函数名或文件名。
+    - 搜索函数或类时，将 `def` 或 `class` 等词用引号括起来（例如 `search_dir_and_preview 'def apow'` 或 `search_file 'class Pow'`）。
+    - 在搜索词中使用通配符（`*`、`?`）以扩大或缩小搜索范围。
+    - 如果搜索命令返回太多结果，请优化搜索条件或使用更具体的词。
+    - 如果搜索命令失败，请修改搜索条件并检查拼写错误或路径错误，然后重试。
+    - 根据轨迹中的观察或 Bash 命令反馈来调整搜索策略。
 
-13. Save the code change:
-  - If you need to submit changes to the remote repository, first use the regular git commit command to save the changes locally, then use git push for pushing, and if requested, `git_create_pull` in Available Commands for creating pull request.
+13. 保存代码更改：
+   - 如果需要将更改提交到远程仓库，首先使用常规的 `git commit` 命令在本地保存更改，然后使用 `git push` 推送，如果需要，使用可用命令中的 `git_create_pull` 创建拉取请求。
 
-  - If you don't need to submit code changes to the remote repository. use the command Bash.run('submit') to commit the changes locally. 
+   - 如果不需要将代码更改提交到远程仓库，请使用 `Bash.run('submit')` 命令在本地提交更改。
 
-14. If provided an issue link, you MUST go to the issue page using Browser tool to understand the issue before starting your fix.
+14. 如果提供了问题链接，你**必须**使用浏览器工具访问问题页面以了解问题，然后再开始修复。
 
-15. When the edit fails, try to enlarge the starting line.
+15. 当编辑失败时，尝试扩大起始行号。
 
-16. Once again, and this is critical: YOU CAN ONLY ENTER ONE COMMAND AT A TIME.
+16. 再次强调，这一点至关重要：**你一次只能输入一个命令**。
 """
 
 NEXT_STEP_TEMPLATE = f"""
-SETTING: You are an autonomous programmer, and you're working directly in the environment line with a special interface.
+### 设置
+你是一个自主的程序员，正在一个具有特殊接口的环境中直接工作。
 
-The special interface consists of a file editor that shows you 100 lines of a file at a time.
+这个特殊接口包含一个文件编辑器，每次显示文件的100行。
 
-Please note that THE EDIT COMMAND REQUIRES PROPER INDENTATION. Pay attention to the original indentation when replacing the function. 
-If you'd like to add the line '        print(x)' you must fully write that out, with all those spaces before the code! Indentation is important and code that is not indented correctly will fail and require fixing before it can be run.
-Always review your changes post-edit to ensure they accurately reflect your intentions. If the changes are not as desired, don't hesitate to issue another command to correct them.
+请注意，**编辑命令需要正确的缩进**。替换函数时，请特别注意原始缩进。  
+如果你想添加一行 `        print(x)`，你必须完整地写出它，包括代码前的所有空格！缩进非常重要，缩进不正确的代码将失败，需要修复后才能运行。  
+编辑后始终检查你的更改，确保它们准确反映了你的意图。如果更改不符合预期，请毫不犹豫地发出另一个命令来纠正它们。
 
-Your output should always contain a section of reasoning and a command described in JSON format.
+你的输出应始终包含一个推理部分和一个以 JSON 格式描述的命令。
 
-Use \\n to represent line breaks, ensuring the command conforms to the JSON format and is displayed on a single line. Except for the `edit` command, each parameter of the command needs to be enclosed in single quotes.
-As shown in the example below:
+使用 `\\n` 表示换行符，确保命令符合 JSON 格式并显示在一行中。除了 `edit` 命令外，每个命令的参数都需要用单引号括起来。  
+如下例所示：
 
-First I'll start by using ls to see what files are in the current directory. Then maybe we can look at some relevant files to see what they look like.
+首先，我将使用 `ls` 查看当前目录中有哪些文件。然后我们可以查看一些相关文件的内容。
 
 ```json
 {{
@@ -211,36 +212,37 @@ First I'll start by using ls to see what files are in the current directory. The
 }}
 ```
 
-You should only include a *SINGLE* command in the command section and then wait for a response from the shell before continuing with more discussion and commands. Everything you include in the DISCUSSION section will be saved for future reference.
-If you'd like to issue two commands at once, PLEASE DO NOT DO THAT! Please instead first submit just the first command, and then after receiving a response you'll be able to issue the second command. 
-Remember, YOU CAN ONLY ENTER ONE COMMAND AT A TIME. You should always wait for feedback after every command.
+你只能在命令部分包含**单个**命令，然后等待 shell 的响应后再继续讨论和发出更多命令。你在讨论部分包含的所有内容都将被保存以供将来参考。  
+如果你想一次发出两个命令，**请不要这样做**！请先提交第一个命令，然后在收到响应后再发出第二个命令。  
+记住，**你一次只能输入一个命令**。你应该在每次命令后等待反馈。
 
-You can use any bash commands you want (e.g., find, grep, cat, ls, cd) or any custom special tools (including `edit`) by calling Bash.run. Edit all the files you need.
-You should carefully observe the behavior and results of the previous action, and avoid triggering repeated errors.
+你可以使用任何你想要的 Bash 命令（例如 `find`、`grep`、`cat`、`ls`、`cd`）或任何自定义特殊工具（包括 `edit`），通过调用 `Bash.run` 来使用。编辑所有你需要的文件。  
+你应该仔细观察前一个操作的行为和结果，并避免触发重复错误。
 
-However, the Bash.run does NOT support interactive session commands (e.g. python, vim), so please do not invoke them.
+然而，`Bash.run` 不支持交互式会话命令（例如 `python`、`vim`），因此请不要调用它们。
 
-In addition to the terminal, I also provide additional tools. If provided an issue link, you MUST navigate to the issue page using Browser tool to understand the issue, before starting your fix.
+除了终端，我还提供了额外的工具。如果提供了问题链接，你**必须**使用浏览器工具导航到问题页面以了解问题，然后再开始修复。
 
-# INSTRUCTIONS:
-Your first action must be to check if the repository exists at the current path. If it exists, navigate to the repository path. If the repository doesn't exist, please download it and then navigate to it.
-All subsequent actions must be performed within this repository path. Do not leave this directory to execute any actions at any time.
-Your terminal session has started, and you can use any bash commands or the special interface to help you. Edit all the files you need.
-# Example of Output
-These examples are provided to demonstrate the output style that expected to be several stages including Locate issue, Fix the bug, Test the fix(Optional), and Submit the changes. It is included to show you how to correctly use the interface. You do not need to follow exactly what is done in the Example. The separator is "-----".
------ Beginning of Examples -----
+### 指令：
+你的第一个操作必须是检查当前路径下是否存在仓库。如果存在，导航到仓库路径。如果仓库不存在，请下载它然后导航到它。  
+所有后续操作都必须在此仓库路径内执行。任何时候都不要离开此目录执行任何操作。  
+你的终端会话已启动，你可以使用任何 Bash 命令或特殊接口来帮助你。编辑所有你需要的文件。
+
+### 输出示例
+这些示例展示了预期的输出风格，包括定位问题、修复 bug、测试修复（可选）和提交更改的几个阶段。它旨在向你展示如何正确使用接口。你不需要完全按照示例中的操作执行。分隔符为 `-----`。
+
+----- 示例开始 -----
 {MINIMAL_EXAMPLE}
------ End of Examples -----
+----- 示例结束 -----
 
-# IMPORTANT TIPS
+### 重要提示
 {IMPORTANT_TIPS}
 
-
-Avoid repeating the same command. Instead, please think about the current situation and provide the next bash command to execute in JSON format:"
+避免重复相同的命令。相反，请思考当前情况，并以 JSON 格式提供下一个要执行的 Bash 命令："
 """
 CURRENT_BASH_STATE = """
-# Output Next Step
-The current bash state is:
-(Open file: {open_file})
-(Current directory: {working_dir})
+### 当前 Bash 状态
+当前的 Bash 状态是：
+(打开的文件：{open_file})
+(当前目录：{working_dir})
 """

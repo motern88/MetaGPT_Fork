@@ -7,34 +7,34 @@ While some concise thoughts are helpful, code is absolutely required. Always out
 """
 
 STRUCTUAL_PROMPT = """
-# User Requirement
+# 用户需求
 {user_requirement}
 
-# Plan Status
+# 计划状态
 {plan_status}
 
-# Tool Info
+# 工具信息
 {tool_info}
 
-# Constraints
-- Take on Current Task if it is in Plan Status, otherwise, tackle User Requirement directly.
-- Ensure the output new code is executable in the same Jupyter notebook as the previous executed code.
-- Always prioritize using pre-defined tools for the same functionality.
+# 约束条件
+- 如果计划状态中存在当前任务，则优先处理当前任务；否则，直接处理用户需求。
+- 确保输出的新代码可以在与之前执行的代码相同的 Jupyter Notebook 中运行。
+- 始终优先使用预定义的工具来实现相同的功能。
 
-# Output
-While some concise thoughts are helpful, code is absolutely required. Always output one and only one code block in your response. Output code in the following format:
+# 输出
+虽然一些简洁的思考是有帮助的，但代码是绝对必需的。每次响应中始终输出**一个且仅一个**代码块。代码输出格式如下：
 ```python
 your code
 ```
 """
 
 REFLECTION_SYSTEM_MSG = """
-You are an AI Python assistant. You will be given your previous implementation code of a task, runtime error results, and a hint to change the implementation appropriately. Write your full implementation.
-When occuring ModuleNotFoundError, always import Terminal tool to install the required package before the refined code in the same cell. Such as `from metagpt.tools.libs.terminal import Terminal\nterminal = Terminal()\nawait terminal.run_command('pip install pandas')` before importing pandas.
+你是一个 AI Python 助手。你将获得你之前实现某个任务的代码、运行时错误结果以及一个提示，以适当修改实现。编写你的完整实现代码。  
+当发生 `ModuleNotFoundError` 时，始终在同一单元格中导入 Terminal 工具以安装所需的包，然后再编写改进后的代码。例如，在导入 `pandas` 之前，先使用 `from metagpt.tools.libs.terminal import Terminal\nterminal = Terminal()\nawait terminal.run_command('pip install pandas')`。
 """
 
 DEBUG_REFLECTION_EXAMPLE = '''
-[previous impl]:
+[之前的实现]:
 assistant:
 ```python
 def add(a: int, b: int) -> int:
@@ -45,14 +45,14 @@ def add(a: int, b: int) -> int:
 ```
 
 user:
-Tests failed:
+测试失败:
 assert add(1, 2) == 3 # output: -1
 assert add(1, 3) == 4 # output: -2
 
-[reflection on previous impl]
-The implementation failed the test cases where the input integers are 1 and 2. The issue arises because the code does not add the two integers together, but instead subtracts the second integer from the first. To fix this issue, we should change the operator from `-` to `+` in the return statement. This will ensure that the function returns the correct output for the given input.
+[对之前实现的反思]
+实现未能通过输入为 1 和 2 的测试用例。问题出在代码没有将两个整数相加，而是将第二个整数从第一个整数中减去。为了解决这个问题，我们应该将返回语句中的运算符从 - 改为 +。这将确保函数为给定输入返回正确的输出。
 
-[improved impl]
+[改进后的实现]
 ```python
 def add(a: int, b: int) -> int:
    """
@@ -63,40 +63,40 @@ def add(a: int, b: int) -> int:
 '''
 
 REFLECTION_PROMPT = """
-[example]
-Here is an example of debugging with reflection.
+[示例]
+这是一个通过反思进行调试的示例。
 {debug_example}
-[/example]
+[/示例]
 
-[context]
+[上下文]
 {context}
 
-[previous impl]
+[之前的实现]
 {previous_impl}
 
-[instruction]
-Analyze your previous code and error in [context] step by step, provide me with improved method and code. Remember to follow [context] requirement. Don't forget to write code for steps behind the error step.
-Output in the following format:
-[reflection on previous impl]
+[指令]
+逐步分析你在[上下文]中的先前代码和错误，提供改进的方法和代码。记住遵循[上下文]中的要求。不要忘记为错误步骤之后的步骤编写代码。  
+按以下格式输出：
+[对之前实现的反思]
 ...
-[improved impl]:
+[改进后的实现]：
 ```python
 # your code
 ```
 """
 
 CHECK_DATA_PROMPT = """
-# Background
-Check latest data info to guide subsequent tasks.
+# 背景
+检查最新数据信息以指导后续任务。
 
-## Finished Tasks
+## 已完成任务
 ```python
 {code_written}
 ```end
 
-# Task
-Check code in finished tasks, print key variables to guide your following actions.
-Specifically, if it is a data analysis or machine learning task, print the the latest column information using the following code, with DataFrame variable from 'Finished Tasks' in place of df:
+# 任务
+检查已完成任务中的代码，打印关键变量以指导你的后续操作。  
+具体来说，如果是数据分析或机器学习任务，请使用以下代码打印最新的列信息，其中 `df` 替换为“已完成任务”中的 DataFrame 变量：
 ```python
 from metagpt.tools.libs.data_preprocess import get_column_info
 
@@ -104,20 +104,20 @@ column_info = get_column_info(df)
 print("column_info")
 print(column_info)
 ```end
-Otherwise, print out any key variables you see fit. Return an empty string if you think there is no important data to check.
+否则，打印出你认为合适的任何关键变量。如果你认为没有重要数据需要检查，则返回空字符串。
 
-# Constraints:
-- Your code is to be added to a new cell in jupyter.
+# 约束条件：
+- 你的代码将添加到 Jupyter 的新单元格中。
 
-# Instruction
-Output code following the format:
+# 指令
+按照以下格式输出代码：
 ```python
 your code
 ```
 """
 
 DATA_INFO = """
-# Latest Data Info
-Latest data info after previous tasks:
+# 最新数据信息
+先前任务后的最新数据信息：
 {info}
 """

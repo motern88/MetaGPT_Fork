@@ -6,87 +6,86 @@
 @File    : summarize.py
 """
 
-# From the plugin: ChatGPT - Website and YouTube Video Summaries
-# https://chrome.google.com/webstore/detail/chatgpt-%C2%BB-summarize-every/cbgecfllfhmmnknmamkejadjmnmpfjmp?hl=en&utm_source=chrome-ntp-launcher
 SUMMARIZE_PROMPT = """
-Your output should use the following template:
-### Summary
-### Facts
-- [Emoji] Bulletpoint
+您的输出应使用以下模板：
+### 总结
+### 事实
+- [Emoji] 项目符号
 
-Your task is to summarize the text I give you in up to seven concise bullet points and start with a short, high-quality 
-summary. Pick a suitable emoji for every bullet point. Your response should be in {{SELECTED_LANGUAGE}}. If the provided
- URL is functional and not a YouTube video, use the text from the {{URL}}. However, if the URL is not functional or is 
-a YouTube video, use the following text: {{CONTENT}}.
+您的任务是将我提供的文本总结为最多七个简洁的要点，并以简短的高质量总结开始。为每个要点选择一个合适的 emoji。您的回答应该是 {{SELECTED_LANGUAGE}}。如果提供的 URL 是有效的且不是 YouTube 视频，请使用 {{URL}} 的文本。如果 URL 无效或是 YouTube 视频，请使用以下文本：{{CONTENT}}。
 """
+# 该模板用于生成摘要，要求提供一个简短的总结，并通过项目符号列出最多七个要点，每个要点前配有一个 emoji 表情。
 
-
-# GCP-VertexAI-Text Summarization (SUMMARIZE_PROMPT_2-5 are from this source)
+# GCP-VertexAI-Text 摘要 (SUMMARIZE_PROMPT_2-5 来源于此)
 # https://github.com/GoogleCloudPlatform/generative-ai/blob/main/language/examples/prompt-design/text_summarization.ipynb
-# Long documents require a map-reduce process, see the following notebook
+# 长文档需要使用映射-归约过程，参见以下笔记本
 # https://github.com/GoogleCloudPlatform/generative-ai/blob/main/language/examples/document-summarization/summarization_large_documents.ipynb
+
 SUMMARIZE_PROMPT_2 = """
-Provide a very short summary, no more than three sentences, for the following article:
+为以下文章提供一个非常简短的总结，不超过三句话：
 
-Our quantum computers work by manipulating qubits in an orchestrated fashion that we call quantum algorithms.
-The challenge is that qubits are so sensitive that even stray light can cause calculation errors — and the problem worsens as quantum computers grow.
-This has significant consequences, since the best quantum algorithms that we know for running useful applications require the error rates of our qubits to be far lower than we have today.
-To bridge this gap, we will need quantum error correction.
-Quantum error correction protects information by encoding it across multiple physical qubits to form a “logical qubit,” and is believed to be the only way to produce a large-scale quantum computer with error rates low enough for useful calculations.
-Instead of computing on the individual qubits themselves, we will then compute on logical qubits. By encoding larger numbers of physical qubits on our quantum processor into one logical qubit, we hope to reduce the error rates to enable useful quantum algorithms.
+我们的量子计算机通过操控量子比特（qubits）以有序的方式工作，我们称之为量子算法。
+问题在于，量子比特非常敏感，甚至光线的干扰也会导致计算错误，且随着量子计算机规模的增大，问题变得更加严重。
+这将带来重大后果，因为我们所知的最佳量子算法需要量子比特的错误率远低于现在的水平才能运行有用的应用程序。
+为弥补这一差距，我们需要量子错误校正技术。
+量子错误校正通过将信息编码到多个物理量子比特中，形成“逻辑量子比特”，并且被认为是生产具有足够低错误率的大规模量子计算机的唯一方法。
+我们将不再对单个量子比特进行计算，而是对逻辑量子比特进行计算。通过将更多的物理量子比特编码到一个逻辑量子比特中，我们希望能够降低错误率，从而实现有用的量子算法。
 
-Summary:
-
+总结：
 """
 
+# 该模板用于为文章提供一个简短的总结，要求不超过三句话。
 
 SUMMARIZE_PROMPT_3 = """
-Provide a TL;DR for the following article:
+为以下文章提供一个 TL;DR（过于简洁的总结）：
 
-Our quantum computers work by manipulating qubits in an orchestrated fashion that we call quantum algorithms. 
-The challenge is that qubits are so sensitive that even stray light can cause calculation errors — and the problem worsens as quantum computers grow. 
-This has significant consequences, since the best quantum algorithms that we know for running useful applications require the error rates of our qubits to be far lower than we have today. 
-To bridge this gap, we will need quantum error correction. 
-Quantum error correction protects information by encoding it across multiple physical qubits to form a “logical qubit,” and is believed to be the only way to produce a large-scale quantum computer with error rates low enough for useful calculations. 
-Instead of computing on the individual qubits themselves, we will then compute on logical qubits. By encoding larger numbers of physical qubits on our quantum processor into one logical qubit, we hope to reduce the error rates to enable useful quantum algorithms.
+我们的量子计算机通过操控量子比特（qubits）以有序的方式工作，我们称之为量子算法。 
+问题在于，量子比特非常敏感，甚至光线的干扰也会导致计算错误，且随着量子计算机规模的增大，问题变得更加严重。 
+这将带来重大后果，因为我们所知的最佳量子算法需要量子比特的错误率远低于现在的水平才能运行有用的应用程序。 
+为弥补这一差距，我们需要量子错误校正技术。 
+量子错误校正通过将信息编码到多个物理量子比特中，形成“逻辑量子比特”，并且被认为是生产具有足够低错误率的大规模量子计算机的唯一方法。 
+我们将不再对单个量子比特进行计算，而是对逻辑量子比特进行计算。通过将更多的物理量子比特编码到一个逻辑量子比特中，我们希望能够降低错误率，从而实现有用的量子算法。
 
-TL;DR:
+TL;DR：
 """
 
+# 该模板用于为文章提供一个非常简短的总结，TL;DR 意味着极为简化的总结。
 
 SUMMARIZE_PROMPT_4 = """
-Provide a very short summary in four bullet points for the following article:
+为以下文章提供四个简短的要点：
 
-Our quantum computers work by manipulating qubits in an orchestrated fashion that we call quantum algorithms.
-The challenge is that qubits are so sensitive that even stray light can cause calculation errors — and the problem worsens as quantum computers grow.
-This has significant consequences, since the best quantum algorithms that we know for running useful applications require the error rates of our qubits to be far lower than we have today.
-To bridge this gap, we will need quantum error correction.
-Quantum error correction protects information by encoding it across multiple physical qubits to form a “logical qubit,” and is believed to be the only way to produce a large-scale quantum computer with error rates low enough for useful calculations.
-Instead of computing on the individual qubits themselves, we will then compute on logical qubits. By encoding larger numbers of physical qubits on our quantum processor into one logical qubit, we hope to reduce the error rates to enable useful quantum algorithms.
+我们的量子计算机通过操控量子比特（qubits）以有序的方式工作，我们称之为量子算法。
+问题在于，量子比特非常敏感，甚至光线的干扰也会导致计算错误，且随着量子计算机规模的增大，问题变得更加严重。
+这将带来重大后果，因为我们所知的最佳量子算法需要量子比特的错误率远低于现在的水平才能运行有用的应用程序。
+为弥补这一差距，我们需要量子错误校正技术。
+量子错误校正通过将信息编码到多个物理量子比特中，形成“逻辑量子比特”，并且被认为是生产具有足够低错误率的大规模量子计算机的唯一方法。
+我们将不再对单个量子比特进行计算，而是对逻辑量子比特进行计算。通过将更多的物理量子比特编码到一个逻辑量子比特中，我们希望能够降低错误率，从而实现有用的量子算法。
 
-Bulletpoints:
-
+要点：
 """
 
+# 该模板要求提供文章的四个简短要点。
 
 SUMMARIZE_PROMPT_5 = """
-Please generate a summary of the following conversation and at the end summarize the to-do's for the support Agent:
+请为以下对话生成总结，并在最后总结支持代理的待办事项：
 
-Customer: Hi, I'm Larry, and I received the wrong item.
+客户：你好，我是 Larry，我收到了错误的物品。
 
-Support Agent: Hi, Larry. How would you like to see this resolved?
+支持代理：你好，Larry。你希望如何解决这个问题？
 
-Customer: That's alright. I want to return the item and get a refund, please.
+客户：没关系，我想退货并获得退款。
 
-Support Agent: Of course. I can process the refund for you now. Can I have your order number, please?
+支持代理：当然，我现在就可以处理退款。请提供您的订单号。
 
-Customer: It's [ORDER NUMBER].
+客户：是 [订单号]。
 
-Support Agent: Thank you. I've processed the refund, and you will receive your money back within 14 days.
+支持代理：谢谢。我已经处理了退款，您将在 14 天内收到退款。
 
-Customer: Thank you very much.
+客户：非常感谢。
 
-Support Agent: You're welcome, Larry. Have a good day!
+支持代理：不客气，Larry。祝您有美好的一天！
 
-Summary:
+总结：
 """
+
+# 该模板用于总结一段客户与支持代理的对话，并列出支持代理应做的待办事项。

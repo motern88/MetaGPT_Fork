@@ -1,66 +1,66 @@
-# Prompt for taking on "eda" tasks
+# 任务为数据探索分析（Exploratory Data Analysis）
 EDA_PROMPT = """
-The current task is about exploratory data analysis, please note the following:
-- Distinguish column types with `select_dtypes` for tailored analysis and visualization, such as correlation.
-- Remember to `import numpy as np` before using Numpy functions.
+当前任务是进行探索性数据分析，请注意以下事项：
+- 使用 `select_dtypes` 区分列类型，以便进行定制的分析和可视化，例如相关性分析。
+- 在使用 Numpy 函数之前，记得先 `import numpy as np`。
 """
 
-# Prompt for taking on "data_preprocess" tasks
+# 任务为数据预处理（Data Preprocessing）
 DATA_PREPROCESS_PROMPT = """
-The current task is about data preprocessing, please note the following:
-- Monitor data types per column, applying appropriate methods.
-- Ensure operations are on existing dataset columns.
-- Avoid writing processed data to files.
-- **ATTENTION** Do NOT make any changes to the label column, such as standardization, etc.
-- Prefer alternatives to one-hot encoding for categorical data.
-- Only encode or scale necessary columns to allow for potential feature-specific engineering tasks (like time_extract, binning, extraction, etc.) later.
-- Each step do data preprocessing to train, must do same for test separately at the same time.
-- Always copy the DataFrame before processing it and use the copy to process.
+当前任务是数据预处理，请注意以下事项：
+- 监控每列的数据类型，并应用适当的方法进行处理。
+- 确保操作作用于现有数据集的列。
+- 避免将处理后的数据写入文件。
+- **注意** 请勿更改标签列，如标准化等操作。
+- 优先考虑使用替代方法，而不是对类别数据进行独热编码。
+- 只对必要的列进行编码或缩放，以便以后可能进行特征工程（如时间提取、分箱、特征提取等）。
+- 每次在训练集上执行的数据预处理步骤，必须在测试集上执行相同操作。
+- 始终在处理数据前复制 DataFrame，并使用复制的 DataFrame 进行处理。
 """
 
-# Prompt for taking on "feature_engineering" tasks
+# 任务为特征工程（Feature Engineering）
 FEATURE_ENGINEERING_PROMPT = """
-The current task is about feature engineering. when performing it, please adhere to the following principles:
-- Generate as diverse features as possible to improve the model's performance step-by-step. 
-- Use available feature engineering tools if they are potential impactful.
-- Avoid creating redundant or excessively numerous features in one step.
-- Exclude ID columns from feature generation and remove them.
-- Each feature engineering operation performed on the train set must also applies to the dev/test separately at the same time.
-- **ATTENTION** Do NOT use the label column to create features, except for cat encoding.
-- Use the data from previous task result if exist, do not mock or reload data yourself.
-- Always copy the DataFrame before processing it and use the copy to process.
+当前任务是进行特征工程，执行时请遵循以下原则：
+- 生成尽可能多样的特征，以逐步提升模型性能。
+- 如果有可能产生影响的特征工程工具，可以使用它们。
+- 避免在一次操作中创建冗余或过多的特征。
+- 排除 ID 列在特征生成中的使用，并将其移除。
+- 每次在训练集上执行的特征工程操作，必须在验证集/测试集上分别执行。
+- **注意** 请勿使用标签列生成特征，除了类别编码之外。
+- 如果有前一个任务的结果数据，请使用该数据，不要自己模拟或重新加载数据。
+- 始终在处理数据前复制 DataFrame，并使用复制的 DataFrame 进行处理。
 """
 
-# Prompt for taking on "model_train" tasks
+# 任务为模型训练（Model Training）
 MODEL_TRAIN_PROMPT = """
-The current task is about training a model, please ensure high performance:
-- For tabular datasets - you have access to XGBoost, CatBoost, random forest, extremely randomized trees, k-nearest neighbors, linear regression, etc.
-- For image datasets - you have access to Swin Transformer, ViT, ResNet, EfficientNet, etc.
-- For text datasets - you have access to Electra, DeBERTa, GPT-2, BERT, etc.
-- Avoid the use of SVM because of its high training time.
-- Keep in mind that your user prioritizes results and is highly focused on model performance. So, when needed, feel free to use models of any complexity to improve effectiveness, such as XGBoost, CatBoost, etc.
-- If non-numeric columns exist, perform label encode together with all steps.
-- Use the data from previous task result directly, do not mock or reload data yourself.
-- Set suitable hyperparameters for the model, make metrics as high as possible.
+当前任务是训练模型，请确保模型具有高性能：
+- 对于表格数据集 - 您可以使用 XGBoost、CatBoost、随机森林、极端随机树、k-最近邻、线性回归等。
+- 对于图像数据集 - 您可以使用 Swin Transformer、ViT、ResNet、EfficientNet 等。
+- 对于文本数据集 - 您可以使用 Electra、DeBERTa、GPT-2、BERT 等。
+- 避免使用 SVM，因为其训练时间较长。
+- 请牢记，用户优先考虑结果，并且非常注重模型性能。所以在需要时，可以使用任何复杂的模型来提升效果，比如 XGBoost、CatBoost 等。
+- 如果存在非数值列，请对其进行标签编码，并与所有其他步骤一起执行。
+- 使用前一个任务的结果数据，不要自己模拟或重新加载数据。
+- 为模型设置适当的超参数，确保性能指标尽可能高。
 """
 
-# Prompt for taking on "model_evaluate" tasks
+# 任务为模型评估（Model Evaluation）
 MODEL_EVALUATE_PROMPT = """
-The current task is about evaluating a model, please note the following:
-- Ensure that the evaluated data is same processed as the training data. If not, remember use object in 'Done Tasks' to transform the data.
-- Use trained model from previous task result directly, do not mock or reload model yourself.
+当前任务是评估模型，请注意以下事项：
+- 确保评估数据与训练数据经过相同的处理。如果不相同，记得使用 '已完成任务' 中的对象转换数据。
+- 直接使用前一个任务中训练好的模型，不要模拟或重新加载模型。
 """
 
-# Prompt for taking on "image2webpage" tasks
+# 任务为将图像转换为网页代码（Image to Webpage）
 IMAGE2WEBPAGE_PROMPT = """
-The current task is about converting image into webpage code. please note the following:
-- Single-Step Code Generation: Execute the entire code generation process in a single step, encompassing HTML, CSS, and JavaScript. Avoid fragmenting the code generation into multiple separate steps to maintain consistency and simplify the development workflow.
-- Save webpages: Be sure to use the save method provided.
+当前任务是将图像转换为网页代码，请注意以下事项：
+- 单步代码生成：在单个步骤中执行整个代码生成过程，涵盖 HTML、CSS 和 JavaScript。避免将代码生成分为多个单独步骤，以保持一致性并简化开发流程。
+- 保存网页：确保使用提供的保存方法来保存网页。
 """
 
-# Prompt for taking on "web_scraping" tasks
+# 任务为网页抓取（Web Scraping）
 WEB_SCRAPING_PROMPT = """
-- Remember to view and print the necessary HTML content in a separate task to understand the structure first before scraping data. Such as `html_content = await view_page_element_to_scrape(...)\nprint(html_content)`.
-- Since the data required by user may not correspond directly to the actual HTML element names, you should thoroughly analyze the HTML structure and meanings of all elements in your context first. Ensure the `class_` in your code should derived from the actual HTML structure directly, not based on your knowledge. To ensure it, analyse the most suitable location of the 'class_' in the actual HTML content before code.
-- Reuse existing html object variable from previous code (if any) to extract data, do not mock or hard code a html variable yourself.
+- 记得先查看并打印必要的 HTML 内容，在抓取数据之前分析结构。例如 `html_content = await view_page_element_to_scrape(...)\nprint(html_content)`。
+- 因为用户所需的数据可能不直接对应实际的 HTML 元素名称，所以您需要彻底分析 HTML 结构及其元素含义。确保在代码中使用的 `class_` 应直接来源于实际 HTML 结构，而非基于您的知识。为了确保这一点，分析实际 HTML 内容中 `class_` 的位置，以便在代码中正确使用。
+- 复用先前代码中的现有 html 对象变量来提取数据，避免自己模拟或硬编码 html 变量。
 """
