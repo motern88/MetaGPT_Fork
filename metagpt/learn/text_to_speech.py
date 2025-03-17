@@ -23,48 +23,65 @@ async def text_to_speech(
     role="Girl",
     config: Optional[Config] = None,
 ):
-    """Text to speech
-    For more details, check out:`https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
+    """文本转语音（Text-to-Speech）
 
-    :param lang: The value can contain a language code such as en (English), or a locale such as en-US (English - United States). For more details, checkout: `https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
-    :param voice: For more details, checkout: `https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`, `https://speech.microsoft.com/portal/voicegallery`
-    :param style: Speaking style to express different emotions like cheerfulness, empathy, and calm. For more details, checkout: `https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
-    :param role: With roles, the same voice can act as a different age and gender. For more details, checkout: `https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
-    :param text: The text used for voice conversion.
-    :param subscription_key: key is used to access your Azure AI service API, see: `https://portal.azure.com/` > `Resource Management` > `Keys and Endpoint`
-    :param region: This is the location (or region) of your resource. You may need to use this field when making calls to this API.
-    :param iflytek_app_id: Application ID is used to access your iFlyTek service API, see: `https://console.xfyun.cn/services/tts`
-    :param iflytek_api_key: WebAPI argument, see: `https://console.xfyun.cn/services/tts`
-    :param iflytek_api_secret: WebAPI argument, see: `https://console.xfyun.cn/services/tts`
-    :return: Returns the Base64-encoded .wav/.mp3 file data if successful, otherwise an empty string.
+    详细信息请参考：`https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
 
+    :param lang: 语言代码（如 "en" 代表英语）或区域代码（如 "en-US" 代表美国英语）。
+                 详细信息参考：`https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
+    :param voice: 选择语音的具体 ID，具体语音列表请参考：
+                  `https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
+                  `https://speech.microsoft.com/portal/voicegallery`
+    :param style: 语音表达风格，如“愉悦”、“同理心”、“冷静”等。
+                  详细信息参考：`https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
+    :param role: 语音角色，使同一语音可以表现出不同的年龄和性别。
+                 详细信息参考：`https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts`
+    :param text: 需要转换为语音的文本内容。
+    :param subscription_key: Azure 语音服务 API 访问密钥，获取方式：
+                             `https://portal.azure.com/` > `资源管理` > `密钥和端点`
+    :param region: Azure 语音服务的资源所在的区域，在调用 API 时可能需要使用。
+    :param iflytek_app_id: iFlyTek（科大讯飞）语音服务的应用 ID，获取方式：
+                            `https://console.xfyun.cn/services/tts`
+    :param iflytek_api_key: iFlyTek WebAPI 访问密钥，获取方式：
+                            `https://console.xfyun.cn/services/tts`
+    :param iflytek_api_secret: iFlyTek WebAPI 访问密钥，获取方式：
+                               `https://console.xfyun.cn/services/tts`
+    :return: 成功时返回 Base64 编码的 .wav/.mp3 音频数据，否则返回空字符串。
     """
     config = config if config else Config.default()
     subscription_key = config.azure_tts_subscription_key
     region = config.azure_tts_region
+
+    # 使用 Azure 语音服务
     if subscription_key and region:
-        audio_declaration = "data:audio/wav;base64,"
+        audio_declaration = "data:audio/wav;base64,"  # 音频 Base64 编码前缀
         base64_data = await oas3_azsure_tts(text, lang, voice, style, role, subscription_key, region)
+
+        # 上传音频数据到 S3，并获取 URL
         s3 = S3(config.s3)
         url = await s3.cache(data=base64_data, file_ext=".wav", format=BASE64_FORMAT)
         if url:
-            return f"[{text}]({url})"
-        return audio_declaration + base64_data if base64_data else base64_data
+            return f"[{text}]({url})"  # 返回 Markdown 格式的音频链接
+        return audio_declaration + base64_data if base64_data else base64_data  # 直接返回 Base64 编码数据
 
+    # 使用 iFlyTek（科大讯飞）语音服务
     iflytek_app_id = config.iflytek_app_id
     iflytek_api_key = config.iflytek_api_key
     iflytek_api_secret = config.iflytek_api_secret
     if iflytek_app_id and iflytek_api_key and iflytek_api_secret:
-        audio_declaration = "data:audio/mp3;base64,"
+        audio_declaration = "data:audio/mp3;base64,"  # 音频 Base64 编码前缀
         base64_data = await oas3_iflytek_tts(
             text=text, app_id=iflytek_app_id, api_key=iflytek_api_key, api_secret=iflytek_api_secret
         )
+
+        # 上传音频数据到 S3，并获取 URL
         s3 = S3(config.s3)
         url = await s3.cache(data=base64_data, file_ext=".mp3", format=BASE64_FORMAT)
         if url:
-            return f"[{text}]({url})"
-        return audio_declaration + base64_data if base64_data else base64_data
+            return f"[{text}]({url})"  # 返回 Markdown 格式的音频链接
+        return audio_declaration + base64_data if base64_data else base64_data  # 直接返回 Base64 编码数据
 
+    # 如果两种服务的必要参数都未提供，则抛出异常
     raise ValueError(
-        "azure_tts_subscription_key, azure_tts_region, iflytek_app_id, iflytek_api_key, iflytek_api_secret error"
+        "azure_tts_subscription_key, azure_tts_region, iflytek_app_id, iflytek_api_key, iflytek_api_secret 配置缺失"
     )

@@ -33,9 +33,11 @@ from metagpt.utils.cost_manager import CostManager
 from metagpt.utils.token_counter import DASHSCOPE_TOKEN_COSTS
 
 
+# 这个函数用于构建 API 请求
 def build_api_arequest(
-    model: str, input: object, task_group: str, task: str, function: str, api_key: str, is_service=True, **kwargs
+        model: str, input: object, task_group: str, task: str, function: str, api_key: str, is_service=True, **kwargs
 ):
+    # 获取协议参数
     (
         api_protocol,
         ws_stream_mode,
@@ -51,7 +53,11 @@ def build_api_arequest(
         base_address,
         _,
     ) = _get_protocol_params(kwargs)
+
+    # 提取 task_id 参数
     task_id = kwargs.pop("task_id", None)
+
+    # 处理 HTTP 或 HTTPS 协议的请求
     if api_protocol in [ApiProtocol.HTTP, ApiProtocol.HTTPS]:
         if base_address is None:
             base_address = dashscope.base_http_api_url
@@ -69,6 +75,8 @@ def build_api_arequest(
             http_url += "%s/" % task
         if function:
             http_url += function
+
+        # 创建 AioHttpRequest 请求对象
         request = AioHttpRequest(
             url=http_url,
             api_key=api_key,
@@ -82,12 +90,15 @@ def build_api_arequest(
     else:
         raise UnsupportedApiProtocol("Unsupported protocol: %s, support [http, https, websocket]" % api_protocol)
 
+    # 如果有自定义的 headers，添加到请求中
     if headers is not None:
         request.add_headers(headers=headers)
 
+    # 检查输入数据和表单数据是否为空
     if input is None and form is None:
         raise InputDataRequired("There is no input data and form data")
 
+    # 构建 API 请求数据
     request_data = ApiRequestData(
         model,
         task_group=task_group,
@@ -98,29 +109,39 @@ def build_api_arequest(
         is_binary_input=is_binary_input,
         api_protocol=api_protocol,
     )
+    # 添加资源和其他参数
     request_data.add_resources(resources)
     request_data.add_parameters(**kwargs)
+
+    # 将数据附加到请求中
     request.data = request_data
     return request
 
 
+# AGeneration 类，继承自 Generation 和 BaseAioApi，处理异步生成请求
 class AGeneration(Generation, BaseAioApi):
     @classmethod
     async def acall(
-        cls,
-        model: str,
-        prompt: Any = None,
-        history: list = None,
-        api_key: str = None,
-        messages: List[Message] = None,
-        plugins: Union[str, Dict[str, Any]] = None,
-        **kwargs,
+            cls,
+            model: str,
+            prompt: Any = None,
+            history: list = None,
+            api_key: str = None,
+            messages: List[Message] = None,
+            plugins: Union[str, Dict[str, Any]] = None,
+            **kwargs,
     ) -> Union[GenerationResponse, AsyncGenerator[GenerationResponse, None]]:
+        # 检查 prompt 或 messages 是否为空
         if (prompt is None or not prompt) and (messages is None or not messages):
             raise InputRequired("prompt or messages is required!")
+
+        # 检查 model 是否为空
         if model is None or not model:
             raise ModelRequired("Model is required!")
-        task_group, function = "aigc", "generation"  # fixed value
+
+        task_group, function = "aigc", "generation"  # 固定值
+
+        # 如果有插件，处理插件头部
         if plugins is not None:
             headers = kwargs.pop("headers", {})
             if isinstance(plugins, str):
@@ -128,9 +149,14 @@ class AGeneration(Generation, BaseAioApi):
             else:
                 headers["X-DashScope-Plugin"] = json.dumps(plugins)
             kwargs["headers"] = headers
+
+        # 构建输入参数
         input, parameters = cls._build_input_parameters(model, prompt, history, messages, **kwargs)
 
+        # 校验 API key 和模型参数
         api_key, model = BaseAioApi._validate_params(api_key, model)
+
+        # 构建 API 请求
         request = build_api_arequest(
             model=model,
             input=input,
@@ -140,10 +166,13 @@ class AGeneration(Generation, BaseAioApi):
             api_key=api_key,
             **kwargs,
         )
+
+        # 执行异步请求
         response = await request.aio_call()
+
+        # 如果是流式响应，返回流式迭代器
         is_stream = kwargs.get("stream", False)
         if is_stream:
-
             async def aresp_iterator(response):
                 async for resp in response:
                     yield GenerationResponse.from_api_response(resp)
@@ -153,24 +182,26 @@ class AGeneration(Generation, BaseAioApi):
             return GenerationResponse.from_api_response(response)
 
 
+# DashScopeLLM 类，继承自 BaseLLM，表示 DashScope 语言模型
 @register_provider(LLMType.DASHSCOPE)
 class DashScopeLLM(BaseLLM):
     def __init__(self, llm_config: LLMConfig):
         self.config = llm_config
-        self.use_system_prompt = False  # only some models support system_prompt
+        self.use_system_prompt = False  # 只有某些模型支持 system_prompt
         self.__init_dashscope()
         self.cost_manager = CostManager(token_costs=self.token_costs)
 
+    # 初始化 DashScope 配置
     def __init_dashscope(self):
         self.model = self.config.model
         self.api_key = self.config.api_key
         self.token_costs = DASHSCOPE_TOKEN_COSTS
         self.aclient: AGeneration = AGeneration
 
-        # check support system_message models
+        # 检查支持 system_message 的模型
         support_system_models = [
-            "qwen-",  # all support
-            "llama2-",  # all support
+            "qwen-",  # 所有支持
+            "llama2-",  # 所有支持
             "baichuan2-7b-chat-v1",
             "chatglm3-6b",
         ]
@@ -178,6 +209,7 @@ class DashScopeLLM(BaseLLM):
             if support_model in self.model:
                 self.use_system_prompt = True
 
+    # 构造常量参数
     def _const_kwargs(self, messages: list[dict], stream: bool = False) -> dict:
         kwargs = {
             "api_key": self.api_key,
@@ -187,35 +219,40 @@ class DashScopeLLM(BaseLLM):
             "result_format": "message",
         }
         if self.config.temperature > 0:
-            # different model has default temperature. only set when it"s specified.
+            # 如果指定了温度参数，则设置
             kwargs["temperature"] = self.config.temperature
         if stream:
             kwargs["incremental_output"] = True
         return kwargs
 
+    # 检查响应是否正常
     def _check_response(self, resp: GenerationResponse):
         if resp.status_code != HTTPStatus.OK:
             raise RuntimeError(f"code: {resp.code}, request_id: {resp.request_id}, message: {resp.message}")
 
+    # 从输出中获取生成的文本
     def get_choice_text(self, output: GenerationOutput) -> str:
         return output.get("choices", [{}])[0].get("message", {}).get("content", "")
 
+    # 同步完成生成请求
     def completion(self, messages: list[dict]) -> GenerationOutput:
         resp: GenerationResponse = self.aclient.call(**self._const_kwargs(messages, stream=False))
         self._check_response(resp)
-
         self._update_costs(dict(resp.usage))
         return resp.output
 
+    # 异步完成生成请求
     async def _achat_completion(self, messages: list[dict], timeout: int = USE_CONFIG_TIMEOUT) -> GenerationOutput:
         resp: GenerationResponse = await self.aclient.acall(**self._const_kwargs(messages, stream=False))
         self._check_response(resp)
         self._update_costs(dict(resp.usage))
         return resp.output
 
+    # 异步流式生成请求
     async def acompletion(self, messages: list[dict], timeout=USE_CONFIG_TIMEOUT) -> GenerationOutput:
         return await self._achat_completion(messages, timeout=self.get_timeout(timeout))
 
+    # 异步流式生成请求（处理流数据）
     async def _achat_completion_stream(self, messages: list[dict], timeout: int = USE_CONFIG_TIMEOUT) -> str:
         resp = await self.aclient.acall(**self._const_kwargs(messages, stream=True))
         collected_content = []
@@ -223,7 +260,7 @@ class DashScopeLLM(BaseLLM):
         async for chunk in resp:
             self._check_response(chunk)
             content = chunk.output.choices[0]["message"]["content"]
-            usage = dict(chunk.usage)  # each chunk has usage
+            usage = dict(chunk.usage)  # 每个 chunk 都包含 usage
             log_llm_stream(content)
             collected_content.append(content)
         log_llm_stream("\n")

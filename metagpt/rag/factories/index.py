@@ -23,38 +23,47 @@ from metagpt.rag.schema import (
 
 
 class RAGIndexFactory(ConfigBasedFactory):
+    """RAG 索引工厂类，根据不同的配置创建对应的索引实例。"""
+
     def __init__(self):
         creators = {
-            FAISSIndexConfig: self._create_faiss,
-            ChromaIndexConfig: self._create_chroma,
-            BM25IndexConfig: self._create_bm25,
-            ElasticsearchIndexConfig: self._create_es,
-            ElasticsearchKeywordIndexConfig: self._create_es,
-            MilvusIndexConfig: self._create_milvus,
+            FAISSIndexConfig: self._create_faiss,  # FAISS 索引配置
+            ChromaIndexConfig: self._create_chroma,  # Chroma 索引配置
+            BM25IndexConfig: self._create_bm25,  # BM25 索引配置
+            ElasticsearchIndexConfig: self._create_es,  # Elasticsearch 索引配置
+            ElasticsearchKeywordIndexConfig: self._create_es,  # Elasticsearch 关键词索引配置
+            MilvusIndexConfig: self._create_milvus,  # Milvus 索引配置
         }
         super().__init__(creators)
 
     def get_index(self, config: BaseIndexConfig, **kwargs) -> BaseIndex:
-        """Key is PersistType."""
+        """根据索引配置返回对应的索引实例。
+
+        参数 `config` 是索引配置，`kwargs` 是额外的参数。
+        """
         return super().get_instance(config, **kwargs)
 
     def _create_faiss(self, config: FAISSIndexConfig, **kwargs) -> VectorStoreIndex:
+        """创建 FAISS 索引实例"""
         vector_store = FaissVectorStore.from_persist_dir(str(config.persist_path))
         storage_context = StorageContext.from_defaults(vector_store=vector_store, persist_dir=config.persist_path)
 
         return self._index_from_storage(storage_context=storage_context, config=config, **kwargs)
 
     def _create_bm25(self, config: BM25IndexConfig, **kwargs) -> VectorStoreIndex:
+        """创建 BM25 索引实例"""
         storage_context = StorageContext.from_defaults(persist_dir=config.persist_path)
 
         return self._index_from_storage(storage_context=storage_context, config=config, **kwargs)
 
     def _create_milvus(self, config: MilvusIndexConfig, **kwargs) -> VectorStoreIndex:
+        """创建 Milvus 索引实例"""
         vector_store = MilvusVectorStore(collection_name=config.collection_name, uri=config.uri, token=config.token)
 
         return self._index_from_vector_store(vector_store=vector_store, config=config, **kwargs)
 
     def _create_chroma(self, config: ChromaIndexConfig, **kwargs) -> VectorStoreIndex:
+        """创建 Chroma 索引实例"""
         db = chromadb.PersistentClient(str(config.persist_path))
         chroma_collection = db.get_or_create_collection(config.collection_name, metadata=config.metadata)
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -62,6 +71,7 @@ class RAGIndexFactory(ConfigBasedFactory):
         return self._index_from_vector_store(vector_store=vector_store, config=config, **kwargs)
 
     def _create_es(self, config: ElasticsearchIndexConfig, **kwargs) -> VectorStoreIndex:
+        """创建 Elasticsearch 索引实例"""
         vector_store = ElasticsearchStore(**config.store_config.model_dump())
 
         return self._index_from_vector_store(vector_store=vector_store, config=config, **kwargs)
@@ -69,6 +79,7 @@ class RAGIndexFactory(ConfigBasedFactory):
     def _index_from_storage(
         self, storage_context: StorageContext, config: BaseIndexConfig, **kwargs
     ) -> VectorStoreIndex:
+        """从存储上下文创建索引实例"""
         embed_model = self._extract_embed_model(config, **kwargs)
 
         return load_index_from_storage(storage_context=storage_context, embed_model=embed_model)
@@ -76,6 +87,7 @@ class RAGIndexFactory(ConfigBasedFactory):
     def _index_from_vector_store(
         self, vector_store: BasePydanticVectorStore, config: BaseIndexConfig, **kwargs
     ) -> VectorStoreIndex:
+        """从向量存储创建索引实例"""
         embed_model = self._extract_embed_model(config, **kwargs)
 
         return VectorStoreIndex.from_vector_store(
@@ -84,6 +96,7 @@ class RAGIndexFactory(ConfigBasedFactory):
         )
 
     def _extract_embed_model(self, config, **kwargs) -> BaseEmbedding:
+        """从配置或传入参数中提取嵌入模型"""
         return self._val_from_config_or_kwargs("embed_model", config, **kwargs)
 
 

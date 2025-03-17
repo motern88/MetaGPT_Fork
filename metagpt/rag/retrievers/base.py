@@ -9,18 +9,18 @@ from metagpt.utils.reflection import check_methods
 
 
 class RAGRetriever(BaseRetriever):
-    """Inherit from llama_index"""
+    """继承自 llama_index 的 RAG 检索器类，用于检索节点。"""
 
     @abstractmethod
     async def _aretrieve(self, query: QueryType) -> list[NodeWithScore]:
-        """Retrieve nodes"""
+        """异步检索节点"""
 
     def _retrieve(self, query: QueryType) -> list[NodeWithScore]:
-        """Retrieve nodes"""
+        """同步检索节点"""
 
 
 class ModifiableRAGRetriever(RAGRetriever):
-    """Support modification."""
+    """支持修改的 RAG 检索器类，允许添加节点。"""
 
     @classmethod
     def __subclasshook__(cls, C):
@@ -30,11 +30,11 @@ class ModifiableRAGRetriever(RAGRetriever):
 
     @abstractmethod
     def add_nodes(self, nodes: list[BaseNode], **kwargs) -> None:
-        """To support add docs, must inplement this func"""
+        """支持添加文档，必须实现该函数"""
 
 
 class PersistableRAGRetriever(RAGRetriever):
-    """Support persistent."""
+    """支持持久化的 RAG 检索器类，可以将数据保存到磁盘。"""
 
     @classmethod
     def __subclasshook__(cls, C):
@@ -44,11 +44,11 @@ class PersistableRAGRetriever(RAGRetriever):
 
     @abstractmethod
     def persist(self, persist_dir: str, **kwargs) -> None:
-        """To support persist, must inplement this func"""
+        """支持持久化操作，必须实现该函数"""
 
 
 class QueryableRAGRetriever(RAGRetriever):
-    """Support querying total count."""
+    """支持查询总节点数量的 RAG 检索器类。"""
 
     @classmethod
     def __subclasshook__(cls, C):
@@ -58,11 +58,11 @@ class QueryableRAGRetriever(RAGRetriever):
 
     @abstractmethod
     def query_total_count(self) -> int:
-        """To support querying total count, must implement this func."""
+        """支持查询总节点数，必须实现该函数"""
 
 
 class DeletableRAGRetriever(RAGRetriever):
-    """Support deleting all nodes."""
+    """支持删除所有节点的 RAG 检索器类。"""
 
     @classmethod
     def __subclasshook__(cls, C):
@@ -72,4 +72,4 @@ class DeletableRAGRetriever(RAGRetriever):
 
     @abstractmethod
     def clear(self, **kwargs) -> int:
-        """To support deleting all nodes, must implement this func."""
+        """支持删除所有节点，必须实现该函数"""

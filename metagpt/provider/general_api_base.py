@@ -40,23 +40,24 @@ from openai import version
 
 logger = logging.getLogger("openai")
 
-TIMEOUT_SECS = 600
-MAX_SESSION_LIFETIME_SECS = 180
-MAX_CONNECTION_RETRIES = 2
+TIMEOUT_SECS = 600  # 超时秒数
+MAX_SESSION_LIFETIME_SECS = 180  # 最大会话生命周期（秒）
+MAX_CONNECTION_RETRIES = 2  # 最大连接重试次数
 
-# Has one attribute per thread, 'session'.
+# 每个线程有一个属性，'session'。
 _thread_context = threading.local()
 
-LLM_LOG = os.environ.get("LLM_LOG", "debug")
+LLM_LOG = os.environ.get("LLM_LOG", "debug")  # 从环境变量获取日志级别，默认为 "debug"
 
 
 class ApiType(Enum):
-    AZURE = 1
-    OPEN_AI = 2
-    AZURE_AD = 3
+    AZURE = 1  # Azure API类型
+    OPEN_AI = 2  # OpenAI API类型
+    AZURE_AD = 3  # Azure AD API类型
 
     @staticmethod
     def from_str(label):
+        # 将字符串标签转换为 ApiType 枚举类型
         if label.lower() == "azure":
             return ApiType.AZURE
         elif label.lower() in ("azure_ad", "azuread"):
@@ -65,10 +66,11 @@ class ApiType(Enum):
             return ApiType.OPEN_AI
         else:
             raise openai.OpenAIError(
-                "The API type provided in invalid. Please select one of the supported API types: 'azure', 'azure_ad', 'open_ai'"
+                "提供的API类型无效。请选择支持的API类型：'azure', 'azure_ad', 'open_ai'"
             )
 
 
+# 根据不同的 API 类型，选择合适的 API 密钥头
 api_key_to_header = (
     lambda api, key: {"Authorization": f"Bearer {key}"}
     if api in (ApiType.OPEN_AI, ApiType.AZURE_AD)
@@ -77,6 +79,7 @@ api_key_to_header = (
 
 
 def _console_log_level():
+    # 返回控制台日志级别
     if LLM_LOG in ["debug", "info"]:
         return LLM_LOG
     else:
@@ -84,6 +87,7 @@ def _console_log_level():
 
 
 def log_debug(message, **params):
+    # 打印调试日志
     msg = logfmt(dict(message=message, **params))
     if _console_log_level() == "debug":
         print(msg, file=sys.stderr)
@@ -91,6 +95,7 @@ def log_debug(message, **params):
 
 
 def log_info(message, **params):
+    # 打印信息日志
     msg = logfmt(dict(message=message, **params))
     if _console_log_level() in ["debug", "info"]:
         print(msg, file=sys.stderr)
@@ -98,22 +103,24 @@ def log_info(message, **params):
 
 
 def log_warn(message, **params):
+    # 打印警告日志
     msg = logfmt(dict(message=message, **params))
     print(msg, file=sys.stderr)
     logger.warning(msg)
 
 
 def logfmt(props):
+    # 格式化日志输出
     def fmt(key, val):
-        # Handle case where val is a bytes or bytesarray
+        # 处理值为字节或字节数组的情况
         if hasattr(val, "decode"):
             val = val.decode("utf-8")
-        # Check if val is already a string to avoid re-encoding into ascii.
+        # 检查 val 是否已经是字符串，以避免重复编码
         if not isinstance(val, str):
             val = str(val)
         if re.search(r"\s", val):
             val = repr(val)
-        # key should already be a string
+        # 如果 key 包含空格，需要将其转换为字符串表示
         if re.search(r"\s", key):
             key = repr(key)
         return "{key}={val}".format(key=key, val=val)
@@ -151,6 +158,7 @@ class OpenAIResponse:
         return None if h is None else round(float(h))
 
     def decode_asjson(self) -> Optional[dict]:
+        # 解码响应数据为 JSON 格式
         bstr = self.data.strip()
         if bstr.startswith(b"{") and bstr.endswith(b"}"):
             bstr = bstr.decode("utf-8")
@@ -160,6 +168,7 @@ class OpenAIResponse:
 
 
 def _build_api_url(url, query):
+    # 构建 API URL，合并查询参数
     scheme, netloc, path, base_query, fragment = urlsplit(url)
 
     if base_query:
@@ -169,7 +178,7 @@ def _build_api_url(url, query):
 
 
 def _requests_proxies_arg(proxy) -> Optional[Dict[str, str]]:
-    """Returns a value suitable for the 'proxies' argument to 'requests.request."""
+    """返回适用于 'requests.request' 的 'proxies' 参数"""
     if proxy is None:
         return None
     elif isinstance(proxy, str):
@@ -178,12 +187,12 @@ def _requests_proxies_arg(proxy) -> Optional[Dict[str, str]]:
         return proxy.copy()
     else:
         raise ValueError(
-            "'openai.proxy' must be specified as either a string URL or a dict with string URL under the https and/or http keys."
+            "'openai.proxy' 必须指定为字符串 URL 或字典形式，字典中包含 https 和/或 http 键。"
         )
 
 
 def _aiohttp_proxies_arg(proxy) -> Optional[str]:
-    """Returns a value suitable for the 'proxies' argument to 'aiohttp.ClientSession.request."""
+    """返回适用于 'aiohttp.ClientSession.request' 的 'proxies' 参数"""
     if proxy is None:
         return None
     elif isinstance(proxy, str):
@@ -192,11 +201,12 @@ def _aiohttp_proxies_arg(proxy) -> Optional[str]:
         return proxy["https"] if "https" in proxy else proxy["http"]
     else:
         raise ValueError(
-            "'openai.proxy' must be specified as either a string URL or a dict with string URL under the https and/or http keys."
+            "'openai.proxy' 必须指定为字符串 URL 或字典形式，字典中包含 https 和/或 http 键。"
         )
 
 
 def _make_session() -> requests.Session:
+    # 创建一个新的 HTTP 会话
     s = requests.Session()
     s.mount(
         "https://",
@@ -206,10 +216,10 @@ def _make_session() -> requests.Session:
 
 
 def parse_stream_helper(line: bytes) -> Optional[str]:
+    # 解析数据流中的一行
     if line:
         if line.strip() == b"data: [DONE]":
-            # return here will cause GeneratorExit exception in urllib3
-            # and it will close http connection with TCP Reset
+            # 如果数据流结束，返回 None
             return None
         if line.startswith(b"data: "):
             line = line[len(b"data: ") :]
@@ -220,6 +230,7 @@ def parse_stream_helper(line: bytes) -> Optional[str]:
 
 
 def parse_stream(rbody: Iterator[bytes]) -> Iterator[str]:
+    # 解析整个数据流，逐行处理
     for line in rbody:
         _line = parse_stream_helper(line)
         if _line is not None:
@@ -227,6 +238,7 @@ def parse_stream(rbody: Iterator[bytes]) -> Iterator[str]:
 
 
 async def parse_stream_async(rbody: aiohttp.StreamReader):
+    # 异步解析流数据
     async for line in rbody:
         _line = parse_stream_helper(line)
         if _line is not None:
@@ -242,11 +254,12 @@ class APIRequestor:
         api_version=None,
         organization=None,
     ):
-        self.base_url = base_url or openai.base_url
-        self.api_key = key or openai.api_key
-        self.api_type = ApiType.from_str(api_type) if api_type else ApiType.from_str("openai")
-        self.api_version = api_version or openai.api_version
-        self.organization = organization or openai.organization
+        # 初始化 API 请求对象
+        self.base_url = base_url or openai.base_url  # 设置基础 URL，默认使用 OpenAI 的 URL
+        self.api_key = key or openai.api_key  # 设置 API 密钥
+        self.api_type = ApiType.from_str(api_type) if api_type else ApiType.from_str("openai")  # 设置 API 类型
+        self.api_version = api_version or openai.api_version  # 设置 API 版本
+        self.organization = organization or openai.organization  # 设置组织信息
 
     @overload
     def request(
@@ -260,6 +273,7 @@ class APIRequestor:
         request_id: Optional[str] = ...,
         request_timeout: Optional[Union[float, Tuple[float, float]]] = ...,
     ) -> Tuple[Iterator[OpenAIResponse], bool, str]:
+        # 重载方法：处理请求，返回一个生成器
         pass
 
     @overload
@@ -316,6 +330,7 @@ class APIRequestor:
         request_id: Optional[str] = None,
         request_timeout: Optional[Union[float, Tuple[float, float]]] = None,
     ) -> Tuple[Union[OpenAIResponse, Iterator[OpenAIResponse]], bool, str]:
+        # 处理实际的 API 请求并返回响应
         result = self.request_raw(
             method.lower(),
             url,
@@ -341,6 +356,7 @@ class APIRequestor:
         request_id: Optional[str] = ...,
         request_timeout: Optional[Union[float, Tuple[float, float]]] = ...,
     ) -> Tuple[Union[OpenAIResponse, AsyncGenerator[OpenAIResponse, None]], bool, str]:
+        # 异步请求重载方法
         pass
 
     async def arequest(
@@ -354,8 +370,9 @@ class APIRequestor:
         request_id: Optional[str] = None,
         request_timeout: Optional[Union[float, Tuple[float, float]]] = None,
     ) -> Tuple[Union[OpenAIResponse, AsyncGenerator[OpenAIResponse, None]], bool, str]:
-        ctx = aiohttp_session()
-        session = await ctx.__aenter__()
+        # 处理实际的异步 API 请求并返回响应
+        ctx = aiohttp_session()  # 获取 aiohttp 会话
+        session = await ctx.__aenter__()  # 异步打开会话
         try:
             result = await self.arequest_raw(
                 method.lower(),
@@ -369,11 +386,12 @@ class APIRequestor:
             )
             resp, got_stream = await self._interpret_async_response(result, stream)
         except Exception:
-            await ctx.__aexit__(None, None, None)
+            await ctx.__aexit__(None, None, None)  # 异常处理，关闭会话
             raise
         if got_stream:
 
             async def wrap_resp():
+                # 包装生成器，确保流式响应正确处理
                 assert isinstance(resp, AsyncGenerator)
                 try:
                     async for r in resp:
@@ -383,13 +401,24 @@ class APIRequestor:
 
             return wrap_resp(), got_stream, self.api_key
         else:
-            await ctx.__aexit__(None, None, None)
+            await ctx.__aexit__(None, None, None)  # 关闭会话
             return resp, got_stream, self.api_key
 
     def request_headers(self, method: str, extra, request_id: Optional[str]) -> Dict[str, str]:
+        """
+        准备请求头部信息。
+        :param method: 请求方法（GET, POST, etc.）
+        :param extra: 额外的请求头
+        :param request_id: 请求的 ID
+        :return: 准备好的请求头部
+        """
+        # 设置默认的 User-Agent
         user_agent = "LLM/v1 PythonBindings/%s" % (version.VERSION,)
 
+        # 获取当前平台的基本信息
         uname_without_node = " ".join(v for k, v in platform.uname()._asdict().items() if k != "node")
+
+        # 设置 User-Agent 的详细信息
         ua = {
             "bindings_version": version.VERSION,
             "httplib": "requests",
@@ -400,25 +429,39 @@ class APIRequestor:
             "uname": uname_without_node,
         }
 
+        # 设置请求头
         headers = {
             "X-LLM-Client-User-Agent": json.dumps(ua),
             "User-Agent": user_agent,
         }
+
+        # 如果存在 API 密钥，则将其添加到请求头
         if self.api_key:
             headers.update(api_key_to_header(self.api_type, self.api_key))
 
+        # 如果存在组织 ID，则将其添加到请求头
         if self.organization:
             headers["LLM-Organization"] = self.organization
 
+        # 如果 API 版本存在且为 OpenAI 类型，则将版本添加到请求头
         if self.api_version is not None and self.api_type == ApiType.OPEN_AI:
             headers["LLM-Version"] = self.api_version
+
+        # 如果请求 ID 存在，将其添加到请求头
         if request_id is not None:
             headers["X-Request-Id"] = request_id
+
+        # 合并额外的请求头
         headers.update(extra)
 
         return headers
 
     def _validate_headers(self, supplied_headers: Optional[Dict[str, str]]) -> Dict[str, str]:
+        """
+        验证请求头部信息的有效性。
+        :param supplied_headers: 用户传入的请求头
+        :return: 验证后的请求头
+        """
         headers: Dict[str, str] = {}
         if supplied_headers is None:
             return headers
@@ -433,20 +476,27 @@ class APIRequestor:
                 raise TypeError("Header values must be strings")
             headers[k] = v
 
-        # NOTE: It is possible to do more validation of the headers, but a request could always
-        # be made to the API manually with invalid headers, so we need to handle them server side.
-
         return headers
 
     def _prepare_request_raw(
-        self,
-        url,
-        supplied_headers,
-        method,
-        params,
-        files,
-        request_id: Optional[str],
+            self,
+            url,
+            supplied_headers,
+            method,
+            params,
+            files,
+            request_id: Optional[str],
     ) -> Tuple[str, Dict[str, str], Optional[bytes]]:
+        """
+        准备原始请求的数据（URL、头部、数据）。
+        :param url: 请求的 URL
+        :param supplied_headers: 用户提供的请求头
+        :param method: 请求方法（GET, POST, etc.）
+        :param params: 请求参数
+        :param files: 上传的文件
+        :param request_id: 请求 ID
+        :return: 准备好的 URL、头部和数据
+        """
         abs_url = "%s%s" % (self.base_url, url)
         headers = self._validate_headers(supplied_headers)
 
@@ -469,23 +519,32 @@ class APIRequestor:
 
         headers = self.request_headers(method, headers, request_id)
 
-        # log_debug("Request to LLM API", method=method, path=abs_url)
-        # log_debug("Post details", data=data, api_version=self.api_version)
-
         return abs_url, headers, data
 
     def request_raw(
-        self,
-        method,
-        url,
-        *,
-        params=None,
-        supplied_headers: Optional[Dict[str, str]] = None,
-        files=None,
-        stream: bool = False,
-        request_id: Optional[str] = None,
-        request_timeout: Optional[Union[float, Tuple[float, float]]] = None,
+            self,
+            method,
+            url,
+            *,
+            params=None,
+            supplied_headers: Optional[Dict[str, str]] = None,
+            files=None,
+            stream: bool = False,
+            request_id: Optional[str] = None,
+            request_timeout: Optional[Union[float, Tuple[float, float]]] = None,
     ) -> requests.Response:
+        """
+        发送原始的 HTTP 请求。
+        :param method: 请求方法（GET, POST, etc.）
+        :param url: 请求的 URL
+        :param params: 请求参数
+        :param supplied_headers: 用户提供的请求头
+        :param files: 上传的文件
+        :param stream: 是否需要流式响应
+        :param request_id: 请求 ID
+        :param request_timeout: 请求超时设置
+        :return: 请求响应对象
+        """
         abs_url, headers, data = self._prepare_request_raw(url, supplied_headers, method, params, files, request_id)
 
         if not hasattr(_thread_context, "session"):
@@ -495,6 +554,7 @@ class APIRequestor:
             _thread_context.session.close()
             _thread_context.session = _make_session()
             _thread_context.session_create_time = time.time()
+
         try:
             result = _thread_context.session.request(
                 method,
@@ -509,28 +569,35 @@ class APIRequestor:
         except requests.exceptions.Timeout as e:
             raise openai.APITimeoutError("Request timed out: {}".format(e)) from e
         except requests.exceptions.RequestException as e:
-            raise openai.APIConnectionError(message="Error communicating with LLM: {}".format(e), request=None) from e
-        # log_debug(
-        #     "LLM API response",
-        #     path=abs_url,
-        #     response_code=result.status_code,
-        #     processing_ms=result.headers.get("LLM-Processing-Ms"),
-        #     request_id=result.headers.get("X-Request-Id"),
-        # )
+            raise openai.APIConnectionError(message="Error communicating with LLM: {}".format(e),
+                                            request=None) from e
+
         return result
 
     async def arequest_raw(
-        self,
-        method,
-        url,
-        session,
-        *,
-        params=None,
-        supplied_headers: Optional[Dict[str, str]] = None,
-        files=None,
-        request_id: Optional[str] = None,
-        request_timeout: Optional[Union[float, Tuple[float, float]]] = None,
+            self,
+            method,
+            url,
+            session,
+            *,
+            params=None,
+            supplied_headers: Optional[Dict[str, str]] = None,
+            files=None,
+            request_id: Optional[str] = None,
+            request_timeout: Optional[Union[float, Tuple[float, float]]] = None,
     ) -> aiohttp.ClientResponse:
+        """
+        异步发送原始 HTTP 请求。
+        :param method: 请求方法（GET, POST, etc.）
+        :param url: 请求的 URL
+        :param session: aiohttp 客户端会话
+        :param params: 请求参数
+        :param supplied_headers: 用户提供的请求头
+        :param files: 上传的文件
+        :param request_id: 请求 ID
+        :param request_timeout: 请求超时设置
+        :return: 请求响应对象
+        """
         abs_url, headers, data = self._prepare_request_raw(url, supplied_headers, method, params, files, request_id)
 
         if isinstance(request_timeout, tuple):
@@ -542,10 +609,11 @@ class APIRequestor:
             timeout = aiohttp.ClientTimeout(total=request_timeout or TIMEOUT_SECS)
 
         if files:
-            # TODO: Use `aiohttp.MultipartWriter` to create the multipart form data here.
-            # For now we use the private `requests` method that is known to have worked so far.
+            # TODO: 使用 `aiohttp.MultipartWriter` 来创建 multipart 数据。
+            # 当前使用了 requests 中的私有方法，这个方法已知可行。
             data, content_type = requests.models.RequestEncodingMixin._encode_files(files, data)  # type: ignore
             headers["Content-Type"] = content_type
+
         request_kwargs = {
             "method": method,
             "url": abs_url,
@@ -553,6 +621,7 @@ class APIRequestor:
             "data": data,
             "timeout": timeout,
         }
+
         try:
             result = await session.request(**request_kwargs)
             return result
@@ -562,20 +631,54 @@ class APIRequestor:
             raise openai.APIConnectionError(message="Error communicating with LLM", request=None) from e
 
     def _interpret_response(
-        self, result: requests.Response, stream: bool
+            self, result: requests.Response, stream: bool
     ) -> Tuple[Union[OpenAIResponse, Iterator[OpenAIResponse]], bool]:
-        """Returns the response(s) and a bool indicating whether it is a stream."""
+        """
+        解释 HTTP 响应，返回响应内容和流的标志。
+        :param result: 响应对象
+        :param stream: 是否为流式响应
+        :return: 响应内容和流标志
+        """
+        pass
 
     async def _interpret_async_response(
-        self, result: aiohttp.ClientResponse, stream: bool
+            self, result: aiohttp.ClientResponse, stream: bool
     ) -> Tuple[Union[OpenAIResponse, AsyncGenerator[OpenAIResponse, None]], bool]:
-        """Returns the response(s) and a bool indicating whether it is a stream."""
+        """
+        异步解释 HTTP 响应，返回响应内容和流的标志。
+        :param result: 响应对象
+        :param stream: 是否为流式响应
+        :return: 响应内容和流标志
+        """
+        pass
 
     def _interpret_response_line(self, rbody: str, rcode: int, rheaders, stream: bool) -> OpenAIResponse:
-        ...
+        """
+        解释单行响应内容。
+        :param rbody: 响应体内容
+        :param rcode: 响应码
+        :param rheaders: 响应头
+        :param stream: 是否为流式响应
+        :return: 解释后的响应
+        """
+        pass
 
 
 @asynccontextmanager
 async def aiohttp_session() -> AsyncIterator[aiohttp.ClientSession]:
+    """
+    创建一个异步上下文管理器，用于管理 aiohttp 客户端会话。
+    这个上下文管理器会在执行完后自动关闭会话。
+
+    使用方法：
+        使用 `async with` 语句来确保会话正确关闭。
+
+    示例：
+        async with aiohttp_session() as session:
+            # 在此处使用 `session` 进行请求
+            pass
+    """
+    # 使用 aiohttp.ClientSession 创建一个会话
     async with aiohttp.ClientSession() as session:
+        # 在上下文管理器中返回会话
         yield session

@@ -1,14 +1,17 @@
 from metagpt.logs import logger
 
-# max_tokens for each model
+from metagpt.logs import logger
+
+# 定义不支持流模式的模型及其最大token限制
 NOT_SUPPORT_STREAM_MODELS = {
-    # Jurassic-2 Mid-v1 and Ultra-v1
-    # + Legacy date: 2024-04-30 (us-west-2/Oregon)
-    # + EOL date: 2024-08-31 (us-west-2/Oregon)
+    # Jurassic-2 Mid-v1 和 Ultra-v1
+    # + Legacy 日期：2024-04-30 (us-west-2/Oregon)
+    # + EOL 日期：2024-08-31 (us-west-2/Oregon)
     "ai21.j2-mid-v1": 8191,
     "ai21.j2-ultra-v1": 8191,
 }
 
+# 定义支持流模式的模型及其最大token限制
 SUPPORT_STREAM_MODELS = {
     # Jamba-Instruct
     # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jamba.html
@@ -97,25 +100,25 @@ SUPPORT_STREAM_MODELS = {
     "mistral.mistral-large-2407-v1:0": 8192,
 }
 
-# TODO:use a more general function for constructing chat templates.
+# TODO: 使用更通用的函数来构建聊天模板
 
 
 def messages_to_prompt_llama2(messages: list[dict]) -> str:
-    BOS = ("<s>",)
-    B_INST, E_INST = "[INST]", "[/INST]"
-    B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+    BOS = ("<s>",)  # Llama2的起始标记
+    B_INST, E_INST = "[INST]", "[/INST]"  # 用户指令的标记
+    B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"  # 系统消息的标记
 
     prompt = f"{BOS}"
     for message in messages:
         role = message.get("role", "")
         content = message.get("content", "")
-        if role == "system":
+        if role == "system":  # 系统角色消息
             prompt += f"{B_SYS} {content} {E_SYS}"
-        elif role == "user":
+        elif role == "user":  # 用户角色消息
             prompt += f"{B_INST} {content} {E_INST}"
-        elif role == "assistant":
+        elif role == "assistant":  # 助手角色消息
             prompt += f"{content}"
-        else:
+        else:  # 未知角色
             logger.warning(f"Unknown role name {role} when formatting messages")
             prompt += f"{content}"
 
@@ -123,8 +126,8 @@ def messages_to_prompt_llama2(messages: list[dict]) -> str:
 
 
 def messages_to_prompt_llama3(messages: list[dict]) -> str:
-    BOS = "<|begin_of_text|>"
-    GENERAL_TEMPLATE = "<|start_header_id|>{role}<|end_header_id|>\n\n{content}<|eot_id|>"
+    BOS = "<|begin_of_text|>"  # Llama3的起始标记
+    GENERAL_TEMPLATE = "<|start_header_id|>{role}<|end_header_id|>\n\n{content}<|eot_id|>"  # 通用模板
 
     prompt = f"{BOS}"
     for message in messages:
@@ -132,7 +135,7 @@ def messages_to_prompt_llama3(messages: list[dict]) -> str:
         content = message.get("content", "")
         prompt += GENERAL_TEMPLATE.format(role=role, content=content)
 
-    if role != "assistant":
+    if role != "assistant":  # 如果最后一个角色不是助手，则添加助手角色
         prompt += "<|start_header_id|>assistant<|end_header_id|>"
 
     return prompt
@@ -140,8 +143,10 @@ def messages_to_prompt_llama3(messages: list[dict]) -> str:
 
 def get_max_tokens(model_id: str) -> int:
     try:
+        # 根据模型ID查找对应的最大token数
         max_tokens = (NOT_SUPPORT_STREAM_MODELS | SUPPORT_STREAM_MODELS)[model_id]
     except KeyError:
+        # 如果没有找到模型ID，则设置最大token为2048
         logger.warning(f"Couldn't find model:{model_id} , max tokens has been set to 2048")
         max_tokens = 2048
     return max_tokens

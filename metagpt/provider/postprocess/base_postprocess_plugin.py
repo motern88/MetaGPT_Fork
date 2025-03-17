@@ -13,57 +13,52 @@ from metagpt.utils.repair_llm_raw_output import (
 
 
 class BasePostProcessPlugin(object):
-    model = None  # the plugin of the `model`, use to judge in `llm_postprocess`
+    model = None  # 用于判断的 `model` 插件，在 `llm_postprocess` 中使用
 
     def run_repair_llm_output(self, output: str, schema: dict, req_key: str = "[/CONTENT]") -> Union[dict, list]:
         """
-        repair steps
-            1. repair the case sensitive problem using the schema's fields
-            2. extract the content from the req_key pair( xx[REQ_KEY]xxx[/REQ_KEY]xx )
-            3. repair the invalid json text in the content
-            4. parse the json text and repair it according to the exception with retry loop
+        修复步骤：
+            1. 使用 schema 的字段修复大小写问题
+            2. 从 req_key 对应的内容中提取有效的 JSON 数据（如 xx[REQ_KEY]xxx[/REQ_KEY]xx）
+            3. 修复内容中的无效 JSON 格式
+            4. 解析 JSON 文本，并根据异常情况进行重试修复
         """
-        output_class_fields = list(schema["properties"].keys())  # Custom ActionOutput's fields
+        output_class_fields = list(schema["properties"].keys())  # Custom ActionOutput 的字段
 
         content = self.run_repair_llm_raw_output(output, req_keys=output_class_fields + [req_key])
         content = self.run_extract_content_from_output(content, right_key=req_key)
-        # # req_keys mocked
+        # req_keys 模拟
         content = self.run_repair_llm_raw_output(content, req_keys=[None], repair_type=RepairType.JSON)
         parsed_data = self.run_retry_parse_json_text(content)
 
         return parsed_data
 
     def run_repair_llm_raw_output(self, content: str, req_keys: list[str], repair_type: str = None) -> str:
-        """inherited class can re-implement the function"""
+        """继承类可以重写此函数"""
         return repair_llm_raw_output(content, req_keys=req_keys, repair_type=repair_type)
 
     def run_extract_content_from_output(self, content: str, right_key: str) -> str:
-        """inherited class can re-implement the function"""
+        """继承类可以重写此函数"""
         return extract_content_from_output(content, right_key=right_key)
 
     def run_retry_parse_json_text(self, content: str) -> Union[dict, list]:
-        """inherited class can re-implement the function"""
-        # logger.info(f"extracted json CONTENT from output:\n{content}")
-        parsed_data = retry_parse_json_text(output=content)  # should use output=content
+        """继承类可以重写此函数"""
+        # logger.info(f"从输出中提取的 JSON CONTENT：\n{content}")
+        parsed_data = retry_parse_json_text(output=content)  # 应该使用 output=content
         return parsed_data
 
     def run(self, output: str, schema: dict, req_key: str = "[/CONTENT]") -> Union[dict, list]:
         """
-        this is used for prompt with a json-format output requirement and outer pair key, like
-            [REQ_KEY]
-                {
-                    "Key": "value"
-                }
-            [/REQ_KEY]
+        用于处理需要 JSON 格式输出的提示，且带有外部键对（例如 [REQ_KEY] 包含 JSON 数据 [/REQ_KEY]）
 
-        Args
-            outer (str): llm raw output
-            schema: output json schema
-            req_key: outer pair right key, usually in `[/REQ_KEY]` format
+        参数：
+            output (str): LLM 的原始输出
+            schema (dict): 输出 JSON 模式
+            req_key (str): 外部键对的右键，通常为 `[/REQ_KEY]` 格式
         """
-        assert len(schema.get("properties")) > 0
-        assert "/" in req_key
+        assert len(schema.get("properties")) > 0  # 确保 schema 中有 properties 字段
+        assert "/" in req_key  # 确保 req_key 中包含分隔符 "/"
 
-        # current, postprocess only deal the repair_llm_raw_output
+        # 当前，后处理仅处理修复 LLM 原始输出
         new_output = self.run_repair_llm_output(output=output, schema=schema, req_key=req_key)
         return new_output

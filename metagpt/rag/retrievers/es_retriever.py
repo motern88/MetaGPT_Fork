@@ -5,13 +5,18 @@ from llama_index.core.schema import BaseNode
 
 
 class ElasticsearchRetriever(VectorIndexRetriever):
-    """Elasticsearch retriever."""
+    """Elasticsearch 检索器，继承自 VectorIndexRetriever，支持基于 Elasticsearch 的检索。"""
 
     def add_nodes(self, nodes: list[BaseNode], **kwargs) -> None:
-        """Support add nodes."""
+        """支持添加节点。
+
+        将节点插入到 Elasticsearch 索引中。
+        """
         self._index.insert_nodes(nodes, **kwargs)
 
     def persist(self, persist_dir: str, **kwargs) -> None:
-        """Support persist.
+        """支持持久化存储。
 
-        Elasticsearch automatically saves, so there is no need to implement."""
+        Elasticsearch 会自动保存，因此无需手动实现持久化操作。
+        """
+        pass

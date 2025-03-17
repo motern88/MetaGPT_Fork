@@ -15,65 +15,63 @@ Skill = Action
 
 
 class SkillManager:
-    """Used to manage all skills"""
+    """用于管理所有技能的类"""
 
     def __init__(self):
-        self._store = ChromaStore("skill_manager")
-        self._skills: dict[str:Skill] = {}
+        self._store = ChromaStore("skill_manager")  # 创建用于存储技能的 ChromaStore
+        self._skills: dict[str:Skill] = {}  # 存储技能的字典
 
     def add_skill(self, skill: Skill):
         """
-        Add a skill, add the skill to the skill pool and searchable storage
-        :param skill: Skill
-        :return:
+        添加技能，将技能添加到技能池并存入可搜索的存储中。
+        :param skill: Skill 实例，表示要添加的技能
         """
-        self._skills[skill.name] = skill
-        self._store.add(skill.desc, {"name": skill.name, "desc": skill.desc}, skill.name)
+        self._skills[skill.name] = skill  # 在技能字典中添加技能
+        self._store.add(skill.desc, {"name": skill.name, "desc": skill.desc}, skill.name)  # 将技能信息存入存储
 
     def del_skill(self, skill_name: str):
         """
-        Delete a skill, remove the skill from the skill pool and searchable storage
-        :param skill_name: Skill name
-        :return:
+        删除技能，从技能池和可搜索存储中移除该技能。
+        :param skill_name: 需要删除的技能名称
         """
-        self._skills.pop(skill_name)
-        self._store.delete(skill_name)
+        self._skills.pop(skill_name)  # 从技能字典中删除技能
+        self._store.delete(skill_name)  # 从存储中删除技能
 
     def get_skill(self, skill_name: str) -> Skill:
         """
-        Obtain a specific skill by skill name
-        :param skill_name: Skill name
-        :return: Skill
+        通过技能名称获取特定技能。
+        :param skill_name: 技能名称
+        :return: 该名称对应的技能对象，如果不存在则返回 None
         """
         return self._skills.get(skill_name)
 
     def retrieve_skill(self, desc: str, n_results: int = 2) -> list[Skill]:
         """
-        Obtain skills through the search engine
-        :param desc: Skill description
-        :return: Multiple skills
+        通过搜索引擎获取相关技能。
+        :param desc: 技能描述
+        :param n_results: 需要返回的技能数量（默认返回 2 个）
+        :return: 匹配到的多个技能
         """
         return self._store.search(desc, n_results=n_results)["ids"][0]
 
     def retrieve_skill_scored(self, desc: str, n_results: int = 2) -> dict:
         """
-        Obtain skills through the search engine
-        :param desc: Skill description
-        :return: Dictionary consisting of skills and scores
+        通过搜索引擎获取相关技能，并返回匹配分数。
+        :param desc: 技能描述
+        :param n_results: 需要返回的技能数量（默认返回 2 个）
+        :return: 一个包含技能及其匹配分数的字典
         """
         return self._store.search(desc, n_results=n_results)
 
     def generate_skill_desc(self, skill: Skill) -> str:
         """
-        Generate descriptive text for each skill
-        :param skill:
-        :return:
+        生成每个技能的描述性文本。
+        :param skill: 需要生成描述的技能
         """
-        path = PROMPT_PATH / "generate_skill.md"
+        path = PROMPT_PATH / "generate_skill.md"  # 读取技能描述的模板文件
         text = path.read_text()
-        logger.info(text)
-
+        logger.info(text)  # 记录生成的文本
 
 if __name__ == "__main__":
     manager = SkillManager()
-    manager.generate_skill_desc(Action())
+    manager.generate_skill_desc(Action())  # 生成一个 Action 技能的描述

@@ -32,29 +32,30 @@ class QianFanLLM(BaseLLM):
 
     def __init__(self, config: LLMConfig):
         self.config = config
-        self.use_system_prompt = False  # only some ERNIE-x related models support system_prompt
+        self.use_system_prompt = False  # 仅某些ERNIE-x相关模型支持system_prompt
         self.__init_qianfan()
         self.cost_manager = CostManager(token_costs=self.token_costs)
 
     def __init_qianfan(self):
+        # 初始化QianFan认证
         if self.config.access_key and self.config.secret_key:
-            # for system level auth, use access_key and secret_key, recommended by official
-            # set environment variable due to official recommendation
+            # 系统级认证，使用access_key和secret_key，官方推荐的方式
+            # 设置环境变量以符合官方推荐
             os.environ.setdefault("QIANFAN_ACCESS_KEY", self.config.access_key)
             os.environ.setdefault("QIANFAN_SECRET_KEY", self.config.secret_key)
         elif self.config.api_key and self.config.secret_key:
-            # for application level auth, use api_key and secret_key
-            # set environment variable due to official recommendation
+            # 应用级认证，使用api_key和secret_key
             os.environ.setdefault("QIANFAN_AK", self.config.api_key)
             os.environ.setdefault("QIANFAN_SK", self.config.secret_key)
         else:
-            raise ValueError("Set the `access_key`&`secret_key` or `api_key`&`secret_key` first")
+            raise ValueError("请先设置`access_key`&`secret_key`或`api_key`&`secret_key`")
 
         if self.config.base_url:
             os.environ.setdefault("QIANFAN_BASE_URL", self.config.base_url)
 
+        # 支持system_prompt的模型对照表
         support_system_pairs = [
-            ("ERNIE-Bot-4", "completions_pro"),  # (model, corresponding-endpoint)
+            ("ERNIE-Bot-4", "completions_pro"),  # (模型, 对应的API端点)
             ("ERNIE-Bot-8k", "ernie_bot_8k"),
             ("ERNIE-Bot", "completions"),
             ("ERNIE-Bot-turbo", "eb-instant"),
@@ -62,28 +63,31 @@ class QianFanLLM(BaseLLM):
             ("EB-turbo-AppBuilder", "ai_apaas"),
         ]
         if self.config.model in [pair[0] for pair in support_system_pairs]:
-            # only some ERNIE models support
+            # 只有某些ERNIE模型支持system_prompt
             self.use_system_prompt = True
         if self.config.endpoint in [pair[1] for pair in support_system_pairs]:
             self.use_system_prompt = True
 
-        assert not (self.config.model and self.config.endpoint), "Only set `model` or `endpoint` in the config"
-        assert self.config.model or self.config.endpoint, "Should set one of `model` or `endpoint` in the config"
+        # 确保配置中只设置了一个model或endpoint
+        assert not (self.config.model and self.config.endpoint), "只应在配置中设置`model`或`endpoint`，不可同时设置"
+        assert self.config.model or self.config.endpoint, "配置中应设置`model`或`endpoint`中的一个"
 
+        # 初始化模型的token成本
         self.token_costs = copy.deepcopy(QIANFAN_MODEL_TOKEN_COSTS)
         self.token_costs.update(QIANFAN_ENDPOINT_TOKEN_COSTS)
 
-        # self deployed model on the cloud not to calculate usage, it charges resource pool rental fee
+        # 如果是自部署的模型，则不计算token的使用费用
         self.calc_usage = self.config.calc_usage and self.config.endpoint is None
         self.aclient: ChatCompletion = qianfan.ChatCompletion()
 
     def _const_kwargs(self, messages: list[dict], stream: bool = False) -> dict:
+        # 构建API请求的参数
         kwargs = {
             "messages": messages,
             "stream": stream,
         }
         if self.config.temperature > 0:
-            # different model has default temperature. only set when it's specified.
+            # 如果指定了温度，才设置
             kwargs["temperature"] = self.config.temperature
         if self.config.endpoint:
             kwargs["endpoint"] = self.config.endpoint
@@ -91,14 +95,14 @@ class QianFanLLM(BaseLLM):
             kwargs["model"] = self.config.model
 
         if self.use_system_prompt:
-            # if the model support system prompt, extract and pass it
+            # 如果模型支持system_prompt，提取并传递system_prompt
             if messages[0]["role"] == "system":
                 kwargs["messages"] = messages[1:]
-                kwargs["system"] = messages[0]["content"]  # set system prompt here
+                kwargs["system"] = messages[0]["content"]  # 设置system_prompt
         return kwargs
 
     def _update_costs(self, usage: dict):
-        """update each request's token cost"""
+        """更新每个请求的token费用"""
         model_or_endpoint = self.config.model or self.config.endpoint
         local_calc_usage = model_or_endpoint in self.token_costs
         super()._update_costs(usage, model_or_endpoint, local_calc_usage)
@@ -107,11 +111,13 @@ class QianFanLLM(BaseLLM):
         return resp.get("result", "")
 
     def completion(self, messages: list[dict], timeout: int = USE_CONFIG_TIMEOUT) -> JsonBody:
+        # 同步完成对话生成
         resp = self.aclient.do(**self._const_kwargs(messages=messages, stream=False), request_timeout=timeout)
         self._update_costs(resp.body.get("usage", {}))
         return resp.body
 
     async def _achat_completion(self, messages: list[dict], timeout: int = USE_CONFIG_TIMEOUT) -> JsonBody:
+        # 异步完成对话生成
         resp = await self.aclient.ado(**self._const_kwargs(messages=messages, stream=False), request_timeout=timeout)
         self._update_costs(resp.body.get("usage", {}))
         return resp.body
@@ -120,6 +126,7 @@ class QianFanLLM(BaseLLM):
         return await self._achat_completion(messages, timeout=self.get_timeout(timeout))
 
     async def _achat_completion_stream(self, messages: list[dict], timeout: int = USE_CONFIG_TIMEOUT) -> str:
+        # 异步流式对话生成
         resp = await self.aclient.ado(**self._const_kwargs(messages=messages, stream=True), request_timeout=timeout)
         collected_content = []
         usage = {}
